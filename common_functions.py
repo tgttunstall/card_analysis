@@ -14,6 +14,18 @@ import time
 
 
 def card_data_to_content(url, file):
+    """
+    This function downloads a tar.bz2 file from the provided URL, extracts a specific file from the archive, 
+    reads its content, and returns it as a string.
+
+    Parameters:
+    url (str): The URL of the tar.bz2 file to be downloaded.
+    file (str): The relative path of the specific file to be extracted from the tar.bz2 archive.
+
+    Returns:
+    str: The content of the extracted file as a UTF-8 encoded string, or None if the file is not found 
+         or there is an error during the process.
+    """
     response = requests.get(url)
     if response.status_code == 200:
         # Create a TarFile object from the downloaded content
@@ -38,6 +50,18 @@ def card_data_to_content(url, file):
         print(f"Error downloading the file: {response.status_code}")
 
 def card_AMR_json_parser(json, pmid):
+    """
+    This function parses a JSON object containing AMR (Antimicrobial Resistance) data and returns a DataFrame 
+    with the relevant information. It extracts details about protein homolog models, including sequences and 
+    annotations, and merges this data with a provided DataFrame containing PubMed IDs.
+
+    Parameters:
+    json (dict): The JSON object containing AMR data to be parsed.
+    pmid (DataFrame): A DataFrame containing PubMed IDs to be merged with the parsed AMR data.
+
+    Returns:
+    DataFrame: A DataFrame containing the extracted and merged AMR data.
+    """
     array = []
     for k in json.keys():
         model_values = {}
@@ -67,9 +91,6 @@ def card_AMR_json_parser(json, pmid):
     df = df.merge(pmid, how='left', left_on='ARO_accession', right_on='ARO_accession')
     return df
 
-def get_ARO_data_from_json(json, aro):
-    print(aro)
-
 def parse_obo_file(obo_path):
     graph = obonet.read_obo(obo_path)
     return graph
@@ -97,11 +118,22 @@ def extract_subgraph(graph, node_id):
 
 def card_graph(obo_file, json_file, card_map_file, acc, color):
     """
-    obo_file = databases/card/card-ontology/aro.obo
-    json_file = databases/card/card-data/card.json
-    card_map_file = map_tsv/card_map.tsv
-    """
+    This function generates a graph visualization for a specific antimicrobial resistance (AMR) gene
+    using data from OBO, JSON files. It filters the relevant data, constructs a subgraph,
+    and adds nodes and edges with appropriate labels and attributes.
 
+    Parameters:
+    obo_file (str): Path to the OBO file containing ontology information.
+    json_file (str): Path to the JSON file containing CARD data.
+    card_map_file (str): Path to the TSV file mapping UniProtKB accessions to ARO accessions.
+    acc (str): The UniProtKB accession number to search for.
+    color (str): The color to be used for nodes in the graph.
+
+    Returns:
+    graph (Graph): The constructed graph object with nodes and edges.
+    aro (str): The ARO accession number associated with the given UniProtKB accession.
+    """
+    
     tsv = pd.read_csv(card_map_file, sep='\t')
     filt_tsv = tsv.loc[tsv['UniProtKB_acc'].str.contains(acc, na=False)]
     if filt_tsv.empty: # check accession 
@@ -171,6 +203,21 @@ def card_graph(obo_file, json_file, card_map_file, acc, color):
     return graph, aro
 
 def amrfinderplus_graph(database_dir, map_file, acc, color):
+    """
+    This function generates a graph visualization for a specific antimicrobial resistance (AMR) gene
+    using data from database files and a map file. It constructs a subgraph based on the AMR gene's
+    hierarchy and adds nodes and edges with appropriate labels and attributes.
+
+    Parameters:
+    database_dir (str): Path to the directory containing database files.
+    map_file (str): Path to the TSV file mapping UniProtKB accessions to RefSeq protein accessions.
+    acc (str): The UniProtKB accession number to search for.
+    color (str): The color to be used for nodes in the graph.
+
+    Returns:
+    graph (Graph): The constructed graph object with nodes and edges.
+    node_name (str): The name of the root node of the graph.
+    """
     
     ### create dataframe from files
     cat = pd.read_csv(database_dir + '/ReferenceGeneCatalog.txt', sep='\t')
@@ -313,6 +360,21 @@ def amrfinderplus_graph(database_dir, map_file, acc, color):
         return graph, prefix + 'allele'
 
 def resfinder_graph(phenotype, map_file, acc, color):
+    """
+    This function generates a graph visualization for a specific antimicrobial resistance (AMR) gene from ResFinder database
+    using data from phenotypes.txt and map files. It constructs a subgraph based on the AMR gene's relationships
+    and adds nodes and edges with appropriate labels and attributes.
+
+    Parameters:
+    phenotype (str): Path to the directory containing phenotype data.
+    map_file (str): Path to the TSV file mapping UniProtKB accessions to ResFinder accessions.
+    acc (str): The UniProtKB accession number to search for.
+    color (str): The color to be used for nodes in the graph.
+
+    Returns:
+    graph (Graph): The constructed graph object with nodes and edges.
+    gene_accession (str): The gene accession number associated with the given UniProtKB accession.
+    """
 
     phen = pd.read_csv(phenotype + '/phenotypes.txt', sep='\t')
     prot_ids_col = 'resfinder_accession'
@@ -403,6 +465,17 @@ def resfinder_graph(phenotype, map_file, acc, color):
     return graph, gene_accession
 
 def simplify_graph(graph):
+    """
+    ¡¡¡ On develop !!!
+    This function simplifies a given graph by merging nodes with identical predecessors and successors. 
+    It creates a new node to represent the merged nodes and updates the edges accordingly.
+
+    Parameters:
+    graph (Graph): The original graph to be simplified.
+
+    Returns:
+    simplified_graph (Graph): The simplified graph with merged nodes.
+    """
     # Create a copy of the graph to make modifications
     simplified_graph = graph.copy()
     
@@ -462,6 +535,19 @@ def insert_newline_every_n_chars(text, n):
     return '\n'.join(result)
 
 def run_idmapping(accesion, from_db, to_db):
+    """
+    This function initiates an ID mapping job using the UniProt API, monitors the job status, 
+    and returns the job ID once the job is finished.
+
+    Parameters:
+    accesion (str): The accession ID to be mapped.
+    from_db (str): The source database of the accession ID.
+    to_db (str): The target database for the ID mapping.
+
+    Returns:
+    jobid (str): The job ID of the ID mapping job.
+    """
+
     # Define the URL of the API of IDmapping
     url = 'https://rest.uniprot.org/idmapping/run'
     # Define parameter
@@ -505,6 +591,18 @@ def run_idmapping(accesion, from_db, to_db):
     return response.json()['jobId']
 
 def get_idmapping_results(jobid):
+    """
+    This function retrieves the results of an ID mapping job from the UniProt API 
+    and returns them as a DataFrame.
+
+    Parameters:
+    jobid (str): The job ID of the completed ID mapping job.
+
+    Returns:
+    df (DataFrame): A DataFrame containing the mapping results, with 'from' IDs grouped 
+                    and concatenated 'to' IDs.
+    """
+
     # Define URL
     print(jobid, 'GETTING')
     results_url = f'https://rest.uniprot.org/idmapping/stream/{jobid}'
@@ -523,6 +621,18 @@ def get_idmapping_results(jobid):
         return None
 
 def get_idmapping_suggestedIds(jobid):
+    """
+    This function retrieves the suggested IDs from an ID mapping job using the UniProt API
+    and returns them as a DataFrame.
+
+    Parameters:
+    jobid (str): The job ID of the completed ID mapping job.
+
+    Returns:
+    df (DataFrame): A DataFrame containing the suggested IDs, with 'from' IDs grouped 
+                    and concatenated 'to' IDs. Returns None if no suggested IDs are found.
+    """
+
     # Define URL
     print(jobid, 'GETTING NO STREAM')
     results_url = f'https://rest.uniprot.org/idmapping/results/{jobid}'
@@ -546,8 +656,16 @@ def get_idmapping_suggestedIds(jobid):
 
 def mapping_card_protein_accession(card_data_dir):
     """
-    tsv = card-data/aro_categories_index.tsv
+    This function maps CARD protein accessions to UniProtKB accessions using the UniProt ID mapping API. 
+    It reads the CARD data from a TSV file, performs the mapping, and returns a DataFrame with the results.
+
+    Parameters:
+    card_data_dir (str): Path to the directory containing CARD data.
+
+    Returns:
+    df (DataFrame): A DataFrame containing ARO accessions, original protein accessions, and mapped UniProtKB accessions.
     """
+
     tsv = card_data_dir + '/aro_index.tsv'
     prot_ids_col = 'Protein Accession'
 
@@ -614,6 +732,16 @@ def mapping_card_protein_accession(card_data_dir):
     return df[['ARO Accession', prot_ids_col, 'UniProtKB_acc']]
 
 def mapping_armfinderplus_protein_accession(amrfinderplus_dir):
+    """
+    This function maps AMRFinderPlus protein accessions to UniProtKB accessions using the UniProt ID mapping API. 
+    It reads the AMRFinderPlus data from a TSV file, performs the mapping, and returns a DataFrame with the results.
+
+    Parameters:
+    amrfinderplus_dir (str): Path to the directory containing AMRFinderPlus data.
+
+    Returns:
+    df (DataFrame): A DataFrame containing original protein accessions, mapped UniProtKB accessions.
+    """
     
     tsv = amrfinderplus_dir + '/ReferenceGeneCatalog.txt'
     
@@ -677,9 +805,20 @@ def mapping_armfinderplus_protein_accession(amrfinderplus_dir):
     df.loc[df['UniProtKB_acc'].isnull(), 'UniProtKB_acc'] = df['to']
     df.drop(columns=['from', 'to'], inplace=True)
 
-    return df[[prot_ids_col, 'UniProtKB_acc', 'scope', 'type', 'subtype']]
+    return df[[prot_ids_col, 'UniProtKB_acc']]
 
 def mapping_resfinder_protein_accession(resfinder_dir):
+    """
+    This function maps ResFinder protein accessions to UniProtKB accessions using the UniProt ID mapping API. 
+    It reads the ResFinder data from a TSV file, performs the mapping, and returns a DataFrame with the results.
+
+    Parameters:
+    resfinder_dir (str): Path to the directory containing ResFinder data.
+
+    Returns:
+    df (DataFrame): A DataFrame containing original protein accessions and mapped UniProtKB accessions.
+    """
+    
     print('resfinder')
     tsv = resfinder_dir + '/phenotypes.txt'
     prot_ids_col = 'resfinder_accession'

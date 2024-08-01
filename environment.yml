@@ -17,6 +17,8 @@ dependencies:
   - decorator=5.1.1=pyhd8ed1ab_0
   - exceptiongroup=1.2.2=pyhd8ed1ab_0
   - executing=2.0.1=pyhd8ed1ab_0
+  - gitdb=4.0.11=pyhd8ed1ab_0
+  - gitpython=3.1.43=pyhd8ed1ab_0
   - h2=4.1.0=pyhd8ed1ab_0
   - hpack=4.0.0=pyh9f0ad1d_0
   - hyperframe=6.0.1=pyhd8ed1ab_0
@@ -72,6 +74,7 @@ dependencies:
   - requests=2.32.3=pyhd8ed1ab_0
   - setuptools=71.0.4=pyhd8ed1ab_0
   - six=1.16.0=pyh6c4a22f_0
+  - smmap=5.0.0=pyhd8ed1ab_0
   - stack_data=0.6.2=pyhd8ed1ab_0
   - tk=8.6.13=noxft_h4845f30_101
   - traitlets=5.14.3=pyhd8ed1ab_0

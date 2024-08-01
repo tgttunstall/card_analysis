@@ -11,7 +11,105 @@ import obonet
 import networkx as nx
 import numpy as np
 import time
+import ftplib
+import os
+import zipfile
+from git import Repo
+import shutil
 
+def download_ftp_directory(ftp_url, download_dir, exclude_files=None):
+    """
+    This function downloads all files from the specified FTP directory and saves them to the specified destination folder,
+    excluding subdirectories and the specified files.
+
+    Parameters:
+    ftp_url (str): The FTP URL of the directory containing the files to be downloaded.
+    download_dir (str): The folder where the downloaded files will be saved.
+    exclude_files (list): A list of filenames to be excluded from downloading.
+    """
+    if exclude_files is None:
+        exclude_files = []
+
+    if not os.path.exists(download_dir):
+        os.makedirs(download_dir)
+    
+    # Parse the FTP URL
+    ftp_host = ftp_url.split('/')[2]
+    ftp_dir = '/'.join(ftp_url.split('/')[3:])
+    
+    # Connect to the FTP server
+    ftp = ftplib.FTP(ftp_host)
+    ftp.login()
+    ftp.cwd(ftp_dir)
+    
+    # List files in the directory
+    items = ftp.mlsd()
+    
+    # Exclude subdirectories and the specified files
+    files = []
+    for item, facts in items:
+        if item in exclude_files:
+            continue
+        if facts['type'] == 'file':  # Check if item is a file
+            files.append(item)
+    
+    # Download each file
+    for file in files:
+        local_file_path = os.path.join(download_dir, file)
+        with open(local_file_path, 'wb') as local_file:
+            ftp.retrbinary('RETR ' + file, local_file.write)
+        print(f"Downloaded: {file}")
+
+    # Close the FTP connection
+    ftp.quit()
+
+def clone_repo(bitbucket_url, clone_dir):
+    """
+    This function clones a Bitbucket repository to the specified directory using GitPython.
+
+    Parameters:
+    bitbucket_url (str): The URL of the Bitbucket repository to be cloned.
+    clone_dir (str): The directory where the repository will be cloned.
+    """
+    if os.path.exists(clone_dir):
+        # Remove the existing directory and its contents
+        shutil.rmtree(clone_dir)
+    
+    os.makedirs(clone_dir)
+    
+    try:
+        # Clone the repository
+        Repo.clone_from(bitbucket_url, clone_dir)
+        print(f"Cloned repository to: {clone_dir}")
+    except Exception as e:
+        print(f"Failed to clone repository: {e}")
+
+def download_and_extract_file(url, download_dir):
+    """
+    This function downloads a tar.bz2 file from a given URL and extracts its contents to the specified destination folder
+    without saving the tar.bz2 file to disk.
+
+    Parameters:
+    url (str): The URL of the tar.bz2 file to be downloaded.
+    download_dir (str): The folder where the extracted files will be saved.
+
+    Returns:
+    str: The path to the extracted contents.
+    """
+    if not os.path.exists(download_dir):
+        os.makedirs(download_dir)
+    
+    response = requests.get(url)
+    if response.status_code == 200:
+        # Create a TarFile object from the downloaded content
+        file_like_object = io.BytesIO(response.content)
+        with tarfile.open(fileobj=file_like_object, mode='r:bz2') as tar:
+            tar.extractall(path=download_dir)
+        print(f"Extracted files to: {download_dir}")
+        return download_dir
+    else:
+        print(f"Failed to download {url}")
+        return None
 
 def card_data_to_content(url, file):
     """
@@ -48,48 +146,6 @@ def card_data_to_content(url, file):
                 print(f"The file {file} was not found in the tar.bz2.")
     else:
         print(f"Error downloading the file: {response.status_code}")
-
-def card_AMR_json_parser(json, pmid):
-    """
-    This function parses a JSON object containing AMR (Antimicrobial Resistance) data and returns a DataFrame 
-    with the relevant information. It extracts details about protein homolog models, including sequences and 
-    annotations, and merges this data with a provided DataFrame containing PubMed IDs.
-
-    Parameters:
-    json (dict): The JSON object containing AMR data to be parsed.
-    pmid (DataFrame): A DataFrame containing PubMed IDs to be merged with the parsed AMR data.
-
-    Returns:
-    DataFrame: A DataFrame containing the extracted and merged AMR data.
-    """
-    array = []
-    for k in json.keys():
-        model_values = {}
-        dd = json[k]
-        if isinstance(dd, dict):
-            if 'model_type' in dd.keys():
-                if dd['model_type'] == "protein homolog model":
-                    model_values = model_values | {'ARO_accession': [dd['ARO_accession']]}
-                    model_values = model_values | {'ARO_name': [dd['ARO_name']]}
-                    model_values = model_values | {'CARD_short_name': [dd['CARD_short_name']]}
-                    model_values = model_values | {'ARO_description': [dd['ARO_description']]}
-                    for k2 in dd['ARO_category'].keys():
-                        cat = dd['ARO_category'][k2]
-                        model_values = model_values | {cat['category_aro_class_name']: [cat['category_aro_name']]}
-                        model_values = model_values | {f'{cat['category_aro_class_name']} description': [cat['category_aro_description']]}
-                    for k3 in dd['model_sequences']['sequence'].keys():
-                        # only one sequence per ARO_accession
-                        seq = dd['model_sequences']['sequence'][k3]
-                        model_values = model_values | {'protein_sequence': [seq['protein_sequence']['sequence']]}
-                        model_values = model_values | {'protein_accession': [seq['protein_sequence']['accession']]}
-                        model_values = model_values | {'dna_sequence': [seq['dna_sequence']['sequence']]}
-                        model_values = model_values | {'dna_accession': [seq['dna_sequence']['accession']]}
-
-        array.append(pd.DataFrame.from_dict(model_values, orient='columns'))    
-    df = pd.concat(array)
-    df['ARO_accession'] = 'ARO:' + df['ARO_accession']
-    df = df.merge(pmid, how='left', left_on='ARO_accession', right_on='ARO_accession')
-    return df
 
 def parse_obo_file(obo_path):
     graph = obonet.read_obo(obo_path)

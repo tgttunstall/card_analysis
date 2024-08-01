@@ -2,11 +2,6 @@
 # coding: utf-8
 
 import pandas as pd
-import requests
-import tarfile
-import io
-import json
-import re
 from config import BASE_DIR, DATA_DIR, CODE_DIR
 from common_functions import mapping_card_protein_accession
 from common_functions import mapping_armfinderplus_protein_accession

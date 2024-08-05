@@ -172,7 +172,7 @@ def extract_subgraph(graph, node_id):
     
     return subgraph
 
-def card_graph(obo_file, json_file, card_map_file, acc, color):
+def card_graph(obo_file, json_file, categories_file, map_file, acc, colors):
     """
     This function generates a graph visualization for a specific antimicrobial resistance (AMR) gene
     using data from OBO, JSON files. It filters the relevant data, constructs a subgraph,
@@ -181,7 +181,7 @@ def card_graph(obo_file, json_file, card_map_file, acc, color):
     Parameters:
     obo_file (str): Path to the OBO file containing ontology information.
     json_file (str): Path to the JSON file containing CARD data.
-    card_map_file (str): Path to the TSV file mapping UniProtKB accessions to ARO accessions.
+    map_file (str): Path to the TSV file mapping UniProtKB accessions to ARO accessions.
     acc (str): The UniProtKB accession number to search for.
     color (str): The color to be used for nodes in the graph.
 
@@ -190,17 +190,21 @@ def card_graph(obo_file, json_file, card_map_file, acc, color):
     aro (str): The ARO accession number associated with the given UniProtKB accession.
     """
     
-    tsv = pd.read_csv(card_map_file, sep='\t')
-    filt_tsv = tsv.loc[tsv['UniProtKB_acc'].str.contains(acc, na=False)]
-    if filt_tsv.empty: # check accession 
+    ### get aro from map file
+    map_df = pd.read_csv(map_file, sep='\t')
+    map_aro_df = map_df.loc[map_df['UniProtKB_acc'].str.contains(acc, na=False)]
+    if map_aro_df.empty: # check accession 
         return None, None
     else:
-        aro = filt_tsv['ARO Accession'].iloc[0]
+        aro = map_aro_df['ARO Accession'].iloc[0]
         print(aro)
     
     obo_graph = parse_obo_file(obo_path=obo_file)
     graph = extract_subgraph(graph=obo_graph, node_id=aro)
-            
+    
+    ## categories files
+    cat_df = pd.read_csv(categories_file, sep='\t')
+
     for node, data in graph.nodes(data=True):
         # get short name
         syn = data.get('synonym', None)
@@ -217,12 +221,18 @@ def card_graph(obo_file, json_file, card_map_file, acc, color):
         
         data['title'] = f'{node}: {data.get('name')}; {data.get('def')}'
         data['group'] = 'card'
-        data['color'] = color
+        data['color'] = colors['card']
+
+        if node in cat_df['ARO Accession'].values:
+            cat = cat_df.loc[cat_df['ARO Accession'] == node, 'ARO Category'].iloc[0]
+            data['color'] = colors[cat]
+            data['title'] = f'{node}: {cat}: {data.get('name')}; {data.get('def')}'
+
 
     for source, target, attr in graph.edges:
         graph.edges[source, target, attr]['label'] = attr
 
-    ## json file parse
+    ## json file parse to get SNPs
     with open(json_file, 'r') as file:
         json_data = json.load(file)
 
@@ -235,7 +245,7 @@ def card_graph(obo_file, json_file, card_map_file, acc, color):
                         'label': 'SNPs' ,
                         'title': value['model_param']['snp']['param_description'],
                         'group': 'card',
-                        'color': color
+                        'color': colors['card']
                     })
                     
                     graph.add_edge(aro, 'SNPs', label=value['model_type'], title=value['model_description'])
@@ -246,7 +256,7 @@ def card_graph(obo_file, json_file, card_map_file, acc, color):
                         'label': snp ,
                         'title': snp,
                         'group': 'card',
-                        'color': color
+                        'color': colors['card']
                         })
                         graph.add_edge('SNPs', snp, label=value['model_param']['snp']['param_type'])
 

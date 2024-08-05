@@ -4,6 +4,8 @@
 
 This repository contains scripts for mapping protein accessions and generating knowledge graphs using various antimicrobial resistance databases. The primary functionalities include downloading and processing data from CARD, AMRFinderPlus, and ResFinder databases, mapping protein accessions to UniProtKB accessions, and creating visual knowledge graphs.
 
+![KG example](https://github.com/ebi-uniprot/card-analisys/blob/main/example/Q9K351.png)
+
 ## Directory Structure
 
 ```plaintext

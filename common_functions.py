@@ -305,7 +305,7 @@ def amrfinderplus_graph(database_dir, map_file, acc, color):
     ### define graph
     graph = nx.MultiDiGraph()
 
-    nodes = ['gene_family', 'allele', 'synonyms', 'subclass', 'class', 'subtype', 'type', 'scope', 'SNPs']
+    nodes = ['gene_family', 'allele', 'synonyms', 'subclass', 'class', 'SNPs']
     prefix = 'afp_'
     product_name = tsv_acc.iloc[0]['product_name']
     pubmed_reference = 'PMID:' + str(tsv_acc.iloc[0]['pubmed_reference'])
@@ -368,6 +368,8 @@ def amrfinderplus_graph(database_dir, map_file, acc, color):
             print('No hierarchical data')
             break
         node_name = hier.loc[hier['node_id'] == node_name].iloc[0]['parent_node_id']
+        if node_name == 'AMR':
+            break
         node_data = hier.loc[hier['node_id'] == node_name].iloc[0]['name']
         
         if node_data != node_data:
@@ -375,8 +377,7 @@ def amrfinderplus_graph(database_dir, map_file, acc, color):
         hier_array.append((node_id, node_name, node_data))
         hier_num += 1
         
-        if node_name == 'ALL':
-            break
+        
 
     ### define hierarchical nodes
     for item in hier_array:
@@ -392,16 +393,13 @@ def amrfinderplus_graph(database_dir, map_file, acc, color):
         graph.add_edge(hier_array[i][0], hier_array[i+1][0], label='is_a', title='is_a')
 
     ### define edges
-    graph.add_edge(prefix + 'subtype', prefix + 'type', label='part_of', title='part_of')
-    graph.add_edge(prefix + 'type', prefix + 'scope', label='part_of', title='part_of')
     graph.add_edge(prefix + 'subclass', prefix + 'class', label='is_a', title='is_a')
     
     if len(hier_array) > 0:
         graph.add_edge(prefix + 'gene_family', 'hier0', label='is_a', title='is_a')
 
     if allele == None:
-        graph.add_edge(prefix + 'gene_family', prefix + 'subtype', label='part_of', title='part_of')
-        graph.add_edge(prefix + 'gene_family', prefix + 'subclass', label='confers_resistace_to_subclass', title='confers_resistace_to_subclass')
+        graph.add_edge(prefix + 'gene_family', prefix + 'subclass', label='confers_resistance_to_subclass', title='confers_resistance_to_subclass')
         if synonym != None:
             graph.add_edge(prefix + 'gene_family', prefix + 'synonyms', label='synonym', title='synonym')
 
@@ -409,8 +407,7 @@ def amrfinderplus_graph(database_dir, map_file, acc, color):
 
     elif subtype == 'POINT':
         graph.add_edge(prefix + 'gene_family', prefix + 'SNPs', label='SNPs', title='AMRFinderPlus SNPs')
-        graph.add_edge(prefix + 'gene_family', prefix + 'subtype', label='part_of', title='part_of')
-        graph.add_edge(prefix + 'gene_family', prefix + 'subclass', label='confers_resistace_to_subclass')
+        graph.add_edge(prefix + 'gene_family', prefix + 'subclass', label='confers_resistance_to_subclass')
         if synonym != None:
             graph.add_edge(prefix + 'gene_family', prefix + 'synonyms', label='synonym', title='synonym')
 
@@ -418,8 +415,7 @@ def amrfinderplus_graph(database_dir, map_file, acc, color):
 
     elif allele != None:
         graph.add_edge(prefix + 'allele', prefix + 'gene_family', label='is_a', title='is_a')
-        graph.add_edge(prefix + 'allele', prefix + 'subtype', label='part_of', title='part_of')
-        graph.add_edge(prefix + 'allele', prefix + 'subclass', label='confers_resistace_to_subclass', title='confers_resistace_to_subclass')
+        graph.add_edge(prefix + 'allele', prefix + 'subclass', label='confers_resistance_to_subclass', title='confers_resistance_to_subclass')
         if synonym != None:
             graph.add_edge(prefix + 'allele', prefix + 'synonyms', label='synonym', title='synonym')
 
@@ -512,7 +508,7 @@ def resfinder_graph(phenotype, map_file, acc, color):
             'color': color
             })
         graph.add_edge(gene_accession, required_gene, label='required_of')
-        graph.add_edge(required_gene, phenotype, label='resistace_to')
+        graph.add_edge(required_gene, phenotype, label='resistance_to')
 
     if notes != None:
         graph.add_node(notes, **{
@@ -526,7 +522,7 @@ def resfinder_graph(phenotype, map_file, acc, color):
 
     graph.add_edge(gene_accession, res_class, label='is_a')
     graph.add_edge(gene_accession, mechanism, label='participates_in')
-    graph.add_edge(mechanism, phenotype, label='confers_resistace_to')
+    graph.add_edge(mechanism, phenotype, label='confers_resistance_to')
 
     return graph, gene_accession
 

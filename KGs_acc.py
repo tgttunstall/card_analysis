@@ -99,17 +99,21 @@ net.from_nx(G)
 for node in net.nodes:
   # print(node)
   # node['title'] = insert_newline_every_n_chars(node['title'], 80)  # Display label on hover
-  node['label'] = insert_newline_every_n_chars(node.get('label', ''), 80)  # Show wrap label on the node
+  node['label'] = insert_newline_every_n_chars(node.get('label', ''), 50)  # Show wrap label on the node
   node['title'] = insert_newline_every_n_chars(node.get('title', ''), 80)  # Show wrap title on the node
   node['color'] = G.nodes[node['id']].get('color', 'black') # get color from networkx graph node
   node['font'] = {'size': 45, 'color': 'white', 'vadjust': 0, 'multi': 'html'}  # Increase font size and change color to white
   node['size'] = 25  # Increase node size
 
 for edge in net.edges:
-  edge['title'] = insert_newline_every_n_chars(edge.get('title', ''), 80)  # Display edge label on hover
-  edge['color'] = 'gray'
   edge['width'] = 2
   edge['font'] = {'size': 18, 'face': 'arial', 'color': 'gray'}  # Decrease font size and change color to white
+  if edge['label'] == 'is_a':
+    edge['color'] = 'olive'
+    edge['font'] = {'size': 18, 'face': 'arial', 'color': 'olivedrab'}
+  elif 'confers_resistance_to' in edge['label']:
+    edge['color'] = 'firebrick'
+    edge['font'] = {'size': 18, 'face': 'arial', 'color': 'indianred'}
 
 
 # Apply physics layout for better node separation
@@ -144,7 +148,7 @@ var options = {
     "arrows": {
       "to": {
         "enabled": true,
-        "scaleFactor": 1
+        "scaleFactor": 2
       }
     }
   },

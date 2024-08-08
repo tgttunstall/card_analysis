@@ -12,6 +12,7 @@ from common_functions import resfinder_graph
 from common_functions import simplify_graph
 from common_functions import insert_newline_every_n_chars
 from config import BASE_DIR, DATA_DIR, CARD_DIR, MAP_DIR
+from pathlib import Path
 
 parser = argparse.ArgumentParser(description='Create knowledge graph from UniProt KB accession with CARD ontology')
 parser.add_argument('--accession', type=str, help='UniProt KB accession', required=True)
@@ -19,15 +20,15 @@ parser.add_argument('--outdir', type=str, help='Path to html file with the knowl
 args = parser.parse_args()
 
 acc = args.accession
-outdir = args.outdir
+outdir = Path(args.outdir)
 
 ### Define group color mapping
 group_colors = {
-	'card': '#0000FF', #blue
-	'uniprot': 'red',
-	'amrfinderplus': 'green',
-	'resfinder': 'orange'
-	# Add more groups and their colors as needed
+  'card': '#0000FF', #blue
+  'uniprot': 'red',
+  'amrfinderplus': 'green',
+  'resfinder': 'orange'
+  # Add more groups and their colors as needed
 }
 card_colors = {
   'card': '#0000FF', # blue
@@ -42,25 +43,25 @@ G = nx.MultiDiGraph()
 
 ### Create CARD KG
 card_G, aro = card_graph(
-	obo_file=CARD_DIR + '/ontology/aro.obo',
-  json_file=CARD_DIR + '/data/card.json',
-  categories_file=CARD_DIR + '/data/aro_categories.tsv',
-	map_file=MAP_DIR + '/card_map.tsv',
-	acc=acc, 
-	colors=card_colors
-	)
+  obo_file=CARD_DIR / 'ontology/aro.obo',
+  json_file=CARD_DIR / 'data/card.json',
+  categories_file=CARD_DIR / 'data/aro_categories.tsv',
+  map_file=MAP_DIR / 'card_map.tsv',
+  acc=acc, 
+  colors=card_colors
+  )
 ### Create AMRFinderPlus graph
 amrfinderplus_G, gene_fam = amrfinderplus_graph(
-  database_dir=DATA_DIR + '/AMRFinderPlus', 
-  map_file=BASE_DIR + '/map_tsv/amrfinderplus_map.tsv',
+  database_dir=DATA_DIR / 'AMRFinderPlus', 
+  map_file=MAP_DIR / 'amrfinderplus_map.tsv',
   acc=acc,
   color=group_colors.get('amrfinderplus', 'black')  
   )
 
 ### Create AMRFinderPlus graph
 resfinder_G, gene_accession = resfinder_graph(
-  phenotype=DATA_DIR + '/resfinder_db', 
-  map_file=BASE_DIR + '/map_tsv/resfinder_map.tsv',
+  phenotype=DATA_DIR / 'resfinder_db', 
+  map_file=MAP_DIR / 'resfinder_map.tsv',
   acc=acc,
   color=group_colors.get('resfinder', 'black')  
   )
@@ -97,13 +98,14 @@ net.from_nx(G)
 
 # Customize the nodes and edges
 for node in net.nodes:
-  # print(node)
-  # node['title'] = insert_newline_every_n_chars(node['title'], 80)  # Display label on hover
-  node['label'] = insert_newline_every_n_chars(node.get('label', ''), 50)  # Show wrap label on the node
+  node_id = node['id']
+  in_degree = G.in_degree(node_id)  # Get the number of incoming edges
+
+  node['label'] = insert_newline_every_n_chars(node.get('label', ''), 35)  # Show wrap label on the node
   node['title'] = insert_newline_every_n_chars(node.get('title', ''), 80)  # Show wrap title on the node
   node['color'] = G.nodes[node['id']].get('color', 'black') # get color from networkx graph node
-  node['font'] = {'size': 45, 'color': 'white', 'vadjust': 0, 'multi': 'html'}  # Increase font size and change color to white
-  node['size'] = 25  # Increase node size
+  node['font'] = {'size': 45 + in_degree * 2, 'color': 'white', 'vadjust': 0, 'multi': 'html'}  # Increase font size and change color to white
+  node['size'] = 25 + in_degree * 6  # Adjust the size based on in-degree
 
 for edge in net.edges:
   edge['width'] = 2
@@ -169,6 +171,5 @@ var options = {
 # net.show_buttons()
 # Redefine the open method of webbrowser to do nothing
 webbrowser.open = lambda url, new=0, autoraise=True: None
-net.save_graph(f"{outdir}/{acc}.html")
-
+net.save_graph(str(outdir / f"{acc}.html"))
 

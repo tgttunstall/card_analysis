@@ -1,13 +1,16 @@
-import os
+from pathlib import Path
 
-current_dir = os.path.dirname(os.path.abspath(__file__))
- 
-BASE_DIR = os.path.dirname(current_dir)
-MAP_DIR = os.path.join(BASE_DIR, 'map_tsv')
-DATA_DIR = os.path.join(BASE_DIR, 'databases')
-CARD_DIR = os.path.join(DATA_DIR, 'card')
-AMRFINDERPLUS_DIR = os.path.join(DATA_DIR, 'amrfinderplus')
-RESFINDER_DIR = os.path.join(DATA_DIR, 'resfinder')
-POINTFINDER_DIR = os.path.join(DATA_DIR, 'pointfinder')
+# Current directory
+current_dir = Path(__file__).resolve().parent
 
-CODE_DIR = os.path.join(BASE_DIR, 'code')
+# Base directory
+BASE_DIR = current_dir.parent
+
+# Specific directories
+MAP_DIR = BASE_DIR / 'map_tsv'
+DATA_DIR = BASE_DIR / 'databases'
+CARD_DIR = DATA_DIR / 'card'
+AMRFINDERPLUS_DIR = DATA_DIR / 'amrfinderplus'
+RESFINDER_DIR = DATA_DIR / 'resfinder'
+POINTFINDER_DIR = DATA_DIR / 'pointfinder'
+CODE_DIR = BASE_DIR / 'code'

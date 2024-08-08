@@ -11,12 +11,12 @@ def main():
     print('downloading CARD data')
     download_and_extract_file(
     	url='https://card.mcmaster.ca/latest/data', 
-    	download_dir=CARD_DIR + '/data/')
+    	download_dir=CARD_DIR / '/data/')
 
     print('downloading CARD ontology')
     download_and_extract_file(
     	url='https://card.mcmaster.ca/latest/ontology', 
-    	download_dir=CARD_DIR + '/ontology/')
+    	download_dir=CARD_DIR / '/ontology/')
 
 	print('downloading ARMFinderPlus')
 	download_ftp_directory(

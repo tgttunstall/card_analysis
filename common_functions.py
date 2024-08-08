@@ -260,7 +260,7 @@ def card_graph(obo_file, json_file, categories_file, map_file, acc, colors):
                         })
                         graph.add_edge('SNPs', snp, label=value['model_param']['snp']['param_type'])
 
-    ## remove some nodes for a clearer graph
+    ## remove some general nodes for a clearer graph
     graph.remove_node('ARO:1000001') # process or component of antibiotic biology or chemistry
     graph.remove_node('ARO:1000002') # mechanism of antibiotic resistance
     graph.remove_node('ARO:1000003') # antibiotic molecule
@@ -286,8 +286,8 @@ def amrfinderplus_graph(database_dir, map_file, acc, color):
     """
     
     ### create dataframe from files
-    cat = pd.read_csv(database_dir + '/ReferenceGeneCatalog.txt', sep='\t')
-    hier = pd.read_csv(database_dir + '/ReferenceGeneHierarchy.txt', sep='\t')
+    cat = pd.read_csv(database_dir / 'ReferenceGeneCatalog.txt', sep='\t')
+    hier = pd.read_csv(database_dir / 'ReferenceGeneHierarchy.txt', sep='\t')
     map_df = pd.read_csv(map_file, sep='\t')
 
     ### get RefSeq Protein accession from map file
@@ -438,7 +438,7 @@ def resfinder_graph(phenotype, map_file, acc, color):
     gene_accession (str): The gene accession number associated with the given UniProtKB accession.
     """
 
-    phen = pd.read_csv(phenotype + '/phenotypes.txt', sep='\t')
+    phen = pd.read_csv(phenotype / 'phenotypes.txt', sep='\t')
     prot_ids_col = 'resfinder_accession'
     phen[prot_ids_col] = phen['Gene_accession no.'].str.split('_').apply(lambda x: x[-1])
     for i in range(0, phen.shape[0]):
@@ -472,7 +472,7 @@ def resfinder_graph(phenotype, map_file, acc, color):
     graph.add_node(gene_accession, **{
             'name': gene_accession,
             'label': gene_accession,
-            'title': pmids,
+            'title': f'{pmids}; Notes: {notes}',
             'group': 'resfinder',
             'color': color
         })
@@ -508,21 +508,12 @@ def resfinder_graph(phenotype, map_file, acc, color):
             'color': color
             })
         graph.add_edge(gene_accession, required_gene, label='required_of')
-        graph.add_edge(required_gene, phenotype, label='resistance_to')
+        graph.add_edge(required_gene, phenotype, label='confers_resistance_to')
 
-    if notes != None:
-        graph.add_node(notes, **{
-            'name': notes,
-            'label': notes,
-            'title': 'notes',
-            'group': 'resfinder',
-            'color': color
-        })
-        graph.add_edge(gene_accession, notes, label='is_a')
-
-    graph.add_edge(gene_accession, res_class, label='is_a')
+    graph.add_edge(gene_accession, phenotype, label='confers_resistance_to')
+    graph.add_edge(phenotype, res_class, label='is_a')
     graph.add_edge(gene_accession, mechanism, label='participates_in')
-    graph.add_edge(mechanism, phenotype, label='confers_resistance_to')
+    
 
     return graph, gene_accession
 
@@ -728,7 +719,7 @@ def mapping_card_protein_accession(card_data_dir):
     df (DataFrame): A DataFrame containing ARO accessions, original protein accessions, and mapped UniProtKB accessions.
     """
 
-    tsv = card_data_dir + '/aro_index.tsv'
+    tsv = card_data_dir / 'aro_index.tsv'
     prot_ids_col = 'Protein Accession'
 
     df = pd.read_csv(tsv, sep='\t')
@@ -805,7 +796,7 @@ def mapping_armfinderplus_protein_accession(amrfinderplus_dir):
     df (DataFrame): A DataFrame containing original protein accessions, mapped UniProtKB accessions.
     """
     
-    tsv = amrfinderplus_dir + '/ReferenceGeneCatalog.txt'
+    tsv = amrfinderplus_dir / 'ReferenceGeneCatalog.txt'
     
     df = pd.read_csv(tsv, sep='\t')
     df['UniProtKB_acc'] = np.nan
@@ -882,7 +873,7 @@ def mapping_resfinder_protein_accession(resfinder_dir):
     """
     
     print('resfinder')
-    tsv = resfinder_dir + '/phenotypes.txt'
+    tsv = resfinder_dir / '/phenotypes.txt'
     prot_ids_col = 'resfinder_accession'
     df = pd.read_csv(tsv, sep='\t')
     df[prot_ids_col] = df['Gene_accession no.'].str.split('_').apply(lambda x: x[-1])

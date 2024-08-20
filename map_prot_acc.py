@@ -9,7 +9,7 @@ from common_functions import mapping_resfinder_protein_accession
  
 
 def main():
-    df = mapping_card_protein_accession(card_data_dir=CARD_DIR + 'data/' )
+    df = mapping_card_protein_accession(card_data_dir=CARD_DIR / 'data/' )
     df.to_csv(MAP_DIR / 'card_map.tsv', sep='\t', index=False)
 
     df = mapping_armfinderplus_protein_accession(amrfinderplus_dir=AMRFINDERPLUS_DIR)

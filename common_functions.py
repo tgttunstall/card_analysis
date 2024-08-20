@@ -16,6 +16,9 @@ import os
 import zipfile
 from git import Repo
 import shutil
+import matplotlib.pyplot as plt
+import networkx as nx
+from pyvis.network import Network
 
 def download_ftp_directory(ftp_url, download_dir, exclude_files=None):
     """
@@ -213,6 +216,7 @@ def card_graph(obo_file, json_file, categories_file, map_file, acc, colors):
             for i in syn:
                 if 'CARD_Short_Name' in i:
                     label = re.match(r'"(.+)"', i).group(1)
+            del data['synonym'] # remove synonym from data, is a list
 
         if label:
             data['label'] = label
@@ -229,8 +233,8 @@ def card_graph(obo_file, json_file, categories_file, map_file, acc, colors):
             data['title'] = f'{node}: {cat}: {data.get('name')}; {data.get('def')}'
 
 
-    for source, target, attr in graph.edges:
-        graph.edges[source, target, attr]['label'] = attr
+    for source, target, edge_id in graph.edges:
+        graph.edges[source, target, edge_id]['label'] = edge_id
 
     ## json file parse to get SNPs
     with open(json_file, 'r') as file:
@@ -698,7 +702,7 @@ def get_idmapping_suggestedIds(jobid):
             print(jobid, 'NO SUGGESTED IDS')
             return None
         else:
-            print(results['suggestedIds'])
+            # print(results['suggestedIds'])
             df = pd.DataFrame(results['suggestedIds'])
             df = df.groupby('from').agg({'to': lambda x: ';'.join(x)}).reset_index()
             return df
@@ -797,6 +801,7 @@ def mapping_armfinderplus_protein_accession(amrfinderplus_dir):
     """
     
     tsv = amrfinderplus_dir / 'ReferenceGeneCatalog.txt'
+    prot_ids_col = 'refseq_protein_accession'
     
     df = pd.read_csv(tsv, sep='\t')
     df['UniProtKB_acc'] = np.nan
@@ -873,7 +878,7 @@ def mapping_resfinder_protein_accession(resfinder_dir):
     """
     
     print('resfinder')
-    tsv = resfinder_dir / '/phenotypes.txt'
+    tsv = resfinder_dir / 'phenotypes.txt'
     prot_ids_col = 'resfinder_accession'
     df = pd.read_csv(tsv, sep='\t')
     df[prot_ids_col] = df['Gene_accession no.'].str.split('_').apply(lambda x: x[-1])
@@ -949,5 +954,250 @@ def mapping_resfinder_protein_accession(resfinder_dir):
 
     return df[[prot_ids_col, 'UniProtKB_acc']]
 
+def create_pyvis_html(graph):
+    # Create a PyVis network
+    net = Network(notebook=False, height='800px', width='100%', bgcolor='#222222', font_color='white')
 
+    # Iterate through nodes and edges to manually add them
+    for node, data in graph.nodes(data=True):
+        node_id = node
+        label = data.get('label', '')
+        title = data.get('title', '')
+        group = data.get('group', '')
+        size = data.get('size')
+
+        # Add node with settings
+        net.add_node(
+            node_id,
+            label=label,
+            title=title,
+            group=group,
+            size=size,
+        )
+
+    for source, target, data in graph.edges(data=True):
+        edge_color = data.get('color', 'gray')
+        edge_font_size = data.get('font_size', 10)
+        edge_font_color = data.get('font_color', 'gray')
+        edge_width = data.get('width', 1)
+        edge_label = data.get('label', '')
+        edge_title = data.get('title', '')
+
+        net.add_edge(
+            source,
+            target,
+            width=edge_width,
+            label=edge_label,
+            title=edge_title,
+            color=edge_color,  # Directly set the color here
+            font={'size': edge_font_size, 'color': edge_font_color}
+        )
+
+    ### some attribites in add_node do not work so I assing it here
+    for node in net.nodes:
+        color = graph.nodes[node['id']].get('color', 'black') # get color from networkx graph node
+        font_size = graph.nodes[node['id']].get('font_size', 10)
+        font_color = graph.nodes[node['id']].get('font_color', 'white')
+
+        node['color'] = color
+        node['font'] = {'size': font_size, 'color': font_color, 'vadjust': 0, 'multi': 'html'}  # Increase font size and change color to white
+
+
+    # Apply physics layout for better node separation
+    net.set_options("""
+    var options = {
+      "nodes": {
+        "color": {
+          "highlight": {
+            "border": "white",
+            "background": "black"
+          },
+          "hover": {
+            "border": "white",
+            "background": "black"
+          }
+        }
+      },
+      "edges": {
+        "color": {
+          "color": "gray"
+        },
+        "font": {
+          "color": "gray",
+          "size": 16,
+          "face": "arial",
+          "background": "none",
+          "strokeWidth": 0,
+          "strokeColor": "none",
+          "multi": true
+        },
+        "smooth": true,
+        "arrows": {
+          "to": {
+            "enabled": true,
+            "scaleFactor": 2
+          }
+        }
+      },
+      "physics": {
+        "barnesHut": {
+          "gravitationalConstant": -20000,
+          "centralGravity": 0.3,
+          "springLength": 200,
+          "springConstant": 0.01,
+          "damping": 0.09
+        },
+        "minVelocity": 0.75
+      }
+    }
+    """)
+
+    return net
+
+def graph_to_cytoscape_json(graph):
+    """
+    Converts a networkx graph to a Cytoscape.js compatible JSON format.
+
+    Parameters:
+    graph (networkx.Graph): The graph to be converted.
+
+    Returns:
+    dict: A dictionary in Cytoscape.js JSON format.
+    """
+    cytoscape_json = {
+        "nodes": [],
+        "edges": []
+    }
+
+    # Convert nodes
+    for node, data in graph.nodes(data=True):
+        cytoscape_json["nodes"].append({
+            "data": {
+                "id": node,
+                "name": data.get("name", node),
+                "label": data.get("label", ""),
+                "group": data.get("group", ""),
+                "color": data.get("color", ""),
+                "title": data.get("title", "")
+            }
+        })
+
+    # Convert edges
+    for source, target, data in graph.edges(data=True):
+        cytoscape_json["edges"].append({
+            "data": {
+                "source": source,
+                "target": target,
+                "label": data.get("label", ""),
+                "title": data.get("title", "")
+            }
+        })
+
+    return cytoscape_json
+
+def graph_to_cytoscape_desktop_json(graph):
+    """
+    Converts a networkx graph to a Cytoscape desktop compatible JSON format.
+
+    Parameters:
+    graph (networkx.Graph): The graph to be converted.
+
+    Returns:
+    dict: A dictionary in Cytoscape desktop JSON format.
+    """
+    cytoscape_json = {
+        "data": {
+            "name": "Network",
+            "shared_name": "Network"
+        },
+        "elements": {
+            "nodes": [],
+            "edges": []
+        }
+    }
+
+    # Convert nodes
+    for node, data in graph.nodes(data=True):
+        cytoscape_json["elements"]["nodes"].append({
+            "data": {
+                "id": node,
+                "name": data.get("name", node),
+                "label": data.get("label", ""),
+                "group": data.get("group", ""),
+                "color": data.get("color", ""),
+                "title": data.get("title", ""),
+                "SUID": id(node)
+            }
+        })
+
+    # Convert edges
+    for i, (source, target, data) in enumerate(graph.edges(data=True)):
+        cytoscape_json["elements"]["edges"].append({
+            "data": {
+                "id": f"edge_{i}",
+                "source": source,
+                "target": target,
+                "label": data.get("label", ""),
+                "interaction": data.get("label", ""),
+                "SUID": id(f"{source}_{target}_{i}")
+            }
+        })
+
+    return cytoscape_json
+
+def save_graph_as_png(graph, file, layout='spring'):
+    """
+    Guarda un grafo de NetworkX como una imagen PNG similar a la imagen de ejemplo proporcionada.
+
+    Parameters:
+    graph (networkx.Graph): El grafo a guardar.
+    file (str): La ruta donde se guardará la imagen PNG.
+    layout (str): El tipo de layout a utilizar ('spring', 'circular', 'shell', etc.).
+    """
+
+    # Seleccionar el layout
+    if layout == 'spring':
+        pos = nx.spring_layout(graph, k=0.5, iterations=100)
+    elif layout == 'circular':
+        pos = nx.circular_layout(graph)
+    elif layout == 'shell':
+        pos = nx.shell_layout(graph)
+    elif layout == 'spectral':
+        pos = nx.spectral_layout(graph)
+    elif layout == 'kamada_kawai':
+        pos = nx.kamada_kawai_layout(graph)
+    else:
+        raise ValueError("Layout no soportado: elija entre 'spring', 'circular', 'shell', 'spectral', 'kamada_kawai'.")
+
+    # Extraer atributos de los nodos
+    node_colors = [graph.nodes[n].get('color', '#1f78b4') for n in graph.nodes()]
+    node_sizes = [graph.nodes[n].get('size', 300) for n in graph.nodes()]
+    node_labels = {n: graph.nodes[n].get('label', n) for n in graph.nodes()}
+
+    # Extraer atributos de las aristas
+    edge_colors = [graph.edges[e].get('color', '#A0A0A0') for e in graph.edges(keys=True)]
+    edge_widths = [graph.edges[e].get('width', 1.5) for e in graph.edges(keys=True)]
+    edge_labels = {(u, v): d.get('label', '') for u, v, d in graph.edges(data=True)}
+
+    # Dibujar el grafo
+    plt.figure(figsize=(20, 20))
+    nx.draw(graph, pos,
+            with_labels=True,
+            labels=node_labels,
+            node_size=node_sizes,
+            node_color=node_colors,
+            edge_color=edge_colors,
+            width=edge_widths,
+            font_size=10,
+            font_color='white',
+            alpha=0.9)
+    
+    # Añadir etiquetas a las aristas
+    nx.draw_networkx_edge_labels(graph, pos, edge_labels=edge_labels, bbox=dict(alpha=0))
+
+    plt.axis('off')  # Ocultar los ejes
+
+    # Guardar el grafo como PNG
+    plt.savefig(file, format='PNG', facecolor='#222222')
+    plt.close()
 

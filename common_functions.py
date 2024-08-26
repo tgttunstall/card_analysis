@@ -711,83 +711,6 @@ def get_idmapping_suggestedIds(jobid):
         print("Error: ", results_response.text)
         return None
 
-def mapping_card_protein_accession(card_data_dir):
-    """
-    This function maps CARD protein accessions to UniProtKB accessions using the UniProt ID mapping API. 
-    It reads the CARD data from a TSV file, performs the mapping, and returns a DataFrame with the results.
-
-    Parameters:
-    card_data_dir (str): Path to the directory containing CARD data.
-
-    Returns:
-    df (DataFrame): A DataFrame containing ARO accessions, original protein accessions, and mapped UniProtKB accessions.
-    """
-
-    tsv = card_data_dir / 'aro_index.tsv'
-    prot_ids_col = 'Protein Accession'
-
-    df = pd.read_csv(tsv, sep='\t')
-    df['UniProtKB_acc'] = np.nan
-    df['UniProtKB_acc'] = df['UniProtKB_acc'].astype('object')
-
-    from_to = [
-    ('EMBL-GenBank-DDBJ_CDS', 'UniProtKB'),
-    ('RefSeq_Protein', 'UniProtKB')
-    ]
-    
-    sg_array = []
-
-    for from_db, to_db in from_to:
-        pids = df.loc[df['UniProtKB_acc'].isnull()][prot_ids_col].to_list()
-
-        jobid = run_idmapping(
-            accesion=pids, 
-            from_db=from_db, 
-            to_db=to_db
-            )
-        map_df = get_idmapping_results(jobid=jobid)
-    
-        df = df.merge(
-            map_df, 
-            how='left', 
-            left_on=prot_ids_col, 
-            right_on='from')
-        
-        df.loc[df['UniProtKB_acc'].isnull(), 'UniProtKB_acc'] = df['to']
-        df.drop(columns=['from', 'to'], inplace=True)
-
-        ### get suggested ids
-        sg_array.append(get_idmapping_suggestedIds(jobid=jobid))
-
-    ### get UniProtKB from UPIs
-    sgmap_df = pd.concat(sg_array)
-    sgmap_df.reset_index(inplace=True, drop=True)
-    
-    upis = sgmap_df['to'].to_list()
-    jobid = run_idmapping(
-            accesion=upis, 
-            from_db='UniParc', 
-            to_db='UniProtKB'
-            )
-    map_upis = get_idmapping_results(jobid=jobid)
-    sgmap_df = sgmap_df.merge(
-                            map_upis, 
-                            how='left', 
-                            left_on='to', 
-                            right_on='from', 
-                            suffixes=('', '_upi'))
-    sgmap_df.loc[sgmap_df['to_upi'].notnull(), 'to'] = sgmap_df['to_upi']
-    
-    df = df.merge(
-                sgmap_df, 
-                how='left', 
-                left_on=prot_ids_col,
-                right_on='from')
-    df.loc[df['UniProtKB_acc'].isnull(), 'UniProtKB_acc'] = df['to']
-    df.drop(columns=['from', 'to'], inplace=True)
-
-    return df[['ARO Accession', prot_ids_col, 'UniProtKB_acc']]
-
 def mapping_armfinderplus_protein_accession(amrfinderplus_dir):
     """
     This function maps AMRFinderPlus protein accessions to UniProtKB accessions using the UniProt ID mapping API. 
@@ -800,70 +723,26 @@ def mapping_armfinderplus_protein_accession(amrfinderplus_dir):
     df (DataFrame): A DataFrame containing original protein accessions, mapped UniProtKB accessions.
     """
     
-    tsv = amrfinderplus_dir / 'ReferenceGeneCatalog.txt'
-    prot_ids_col = 'refseq_protein_accession'
+    # tsv = amrfinderplus_dir / 'ReferenceGeneCatalog.txt'
+    # prot_ids_col = 'refseq_protein_accession'
     
-    df = pd.read_csv(tsv, sep='\t')
-    df['UniProtKB_acc'] = np.nan
-    df['UniProtKB_acc'] = df['UniProtKB_acc'].astype('object')
+    # df = pd.read_csv(tsv, sep='\t')
+    # df['UniProtKB_acc'] = np.nan
+    # df['UniProtKB_acc'] = df['UniProtKB_acc'].astype('object')
 
-    from_to = [
-    ('RefSeq_Protein', 'UniProtKB')
-    ]
+    # from_to = [
+    # ('RefSeq_Protein', 'UniProtKB')
+    # ]
 
-    sg_array = []
+    # #######
+    # df = id_mapping_protein_accessions(
+    #     df=df, 
+    #     prot_ids_col=prot_ids_col,
+    #     from_to=from_to,
+    #     acc_file=tsv
+    #     )
 
-    for from_db, to_db in from_to:
-        pids = df.loc[df['UniProtKB_acc'].isnull()][prot_ids_col].to_list()
-
-        jobid = run_idmapping(
-            accesion=pids, 
-            from_db=from_db, 
-            to_db=to_db
-            )
-        map_df = get_idmapping_results(jobid=jobid)
-    
-        df = df.merge(
-            map_df, 
-            how='left', 
-            left_on=prot_ids_col, 
-            right_on='from')
-        
-        df.loc[df['UniProtKB_acc'].isnull(), 'UniProtKB_acc'] = df['to']
-        df.drop(columns=['from', 'to'], inplace=True)
-
-        ### get suggested ids
-        sg_array.append(get_idmapping_suggestedIds(jobid=jobid))
-
-    ### get UniProtKB from UPIs
-    sgmap_df = pd.concat(sg_array)
-    sgmap_df.reset_index(inplace=True, drop=True)
-
-    upis = sgmap_df['to'].to_list()
-    jobid = run_idmapping(
-            accesion=upis, 
-            from_db='UniParc', 
-            to_db='UniProtKB'
-            )
-    map_upis = get_idmapping_results(jobid=jobid)
-
-    sgmap_df = sgmap_df.merge(
-                            map_upis, 
-                            how='left', 
-                            left_on='to', 
-                            right_on='from', 
-                            suffixes=('', '_upi'))
-    sgmap_df.loc[sgmap_df['to_upi'].notnull(), 'to'] = sgmap_df['to_upi']
-    
-    df = df.merge(
-                sgmap_df, 
-                how='left', 
-                left_on=prot_ids_col,
-                right_on='from')
-    df.loc[df['UniProtKB_acc'].isnull(), 'UniProtKB_acc'] = df['to']
-    df.drop(columns=['from', 'to'], inplace=True)
-
-    return df[[prot_ids_col, 'UniProtKB_acc']]
+    # return df[[prot_ids_col, 'UniProtKB_acc']]
 
 def mapping_resfinder_protein_accession(resfinder_dir):
     """
@@ -876,30 +755,48 @@ def mapping_resfinder_protein_accession(resfinder_dir):
     Returns:
     df (DataFrame): A DataFrame containing original protein accessions and mapped UniProtKB accessions.
     """
+
+    # tsv = resfinder_dir / 'phenotypes.txt'
+    # prot_ids_col = 'resfinder_accession'
+    # df = pd.read_csv(tsv, sep='\t')
+    # df[prot_ids_col] = df['Gene_accession no.'].str.split('_').apply(lambda x: x[-1])
+    # for i in range(0, df.shape[0]):
+    #         prefix = df.loc[i,'Gene_accession no.'].split('_')[-2]
+    #         if prefix == 'NG' or prefix == 'NC':
+    #             df.loc[i,prot_ids_col] = f'{prefix}_{df.loc[i,'Gene_accession no.'].split('_')[-1]}'
+
+    # df['UniProtKB_acc'] = np.nan
+    # df['UniProtKB_acc'] = df['UniProtKB_acc'].astype('object')
+
+    # from_to = [
+    # ('EMBL-GenBank-DDBJ', 'UniProtKB'),
+    # ('RefSeq_Nucleotide', 'UniProtKB')
+    # ]
+
+    # #######
+    # df = id_mapping_protein_accessions(
+    #     df=df, 
+    #     prot_ids_col=prot_ids_col,
+    #     from_to=from_to,
+    #     acc_file=tsv
+    #     )
+
+    # return df[[prot_ids_col, 'UniProtKB_acc']]
+
+def id_mapping_protein_accessions(df, prot_ids_col, from_to):
+    '''
+    in develop
     
-    print('resfinder')
-    tsv = resfinder_dir / 'phenotypes.txt'
-    prot_ids_col = 'resfinder_accession'
-    df = pd.read_csv(tsv, sep='\t')
-    df[prot_ids_col] = df['Gene_accession no.'].str.split('_').apply(lambda x: x[-1])
-    for i in range(0, df.shape[0]):
-            prefix = df.loc[i,'Gene_accession no.'].split('_')[-2]
-            if prefix == 'NG' or prefix == 'NC':
-                df.loc[i,prot_ids_col] = f'{prefix}_{df.loc[i,'Gene_accession no.'].split('_')[-1]}'
-
-    df['UniProtKB_acc'] = np.nan
-    df['UniProtKB_acc'] = df['UniProtKB_acc'].astype('object')
-
-    from_to = [
-    ('EMBL-GenBank-DDBJ', 'UniProtKB'),
-    ('RefSeq_Nucleotide', 'UniProtKB')
-    ]
-
+    merge suggested ids with mapped UPIs
+    merge df with suggested ids    
+    remove nan protein acessions
+    drop duplicated
+    '''
+    
     sg_array = []
 
     for from_db, to_db in from_to:
         pids = df.loc[df['UniProtKB_acc'].isnull()][prot_ids_col].to_list()
-        # print(pids)
 
         jobid = run_idmapping(
             accesion=pids, 
@@ -908,6 +805,7 @@ def mapping_resfinder_protein_accession(resfinder_dir):
             )
         map_df = get_idmapping_results(jobid=jobid)
         
+        ### merge dataframe with id mapping results
         df = df.merge(
             map_df, 
             how='left', 
@@ -919,38 +817,46 @@ def mapping_resfinder_protein_accession(resfinder_dir):
 
         ### get suggested ids
         sg = get_idmapping_suggestedIds(jobid=jobid)
-        if sg:
-            sg_array.append()
+        if isinstance(sg, pd.DataFrame):
+            sg_array.append(sg)
 
-
-    ### get UniProtKB from UPIs
+    ### if there are suggested UPIs 
+    ### get UniProtKB accession from UPIs
     if len(sg_array) > 0:
-        sgmap_df = pd.concat(sg_array)
-        sgmap_df.reset_index(inplace=True, drop=True)
-
-        upis = sgmap_df['to'].to_list()
+        ### create df of suggested uniparc accession
+        sg_map_df = pd.concat(sg_array)
+        sg_map_df.reset_index(inplace=True, drop=True)
+        ### gep UPIs list
+        upis = sg_map_df['to'].to_list()
+        ### Run id mapping
         jobid = run_idmapping(
                 accesion=upis, 
                 from_db='UniParc', 
                 to_db='UniProtKB'
                 )
-        map_upis = get_idmapping_results(jobid=jobid)
-
-        sgmap_df = sgmap_df.merge(
-                                map_upis, 
+        upis_map_df = get_idmapping_results(jobid=jobid)
+        ### merge suggested df with mapped upis dataframe to get UniProtKB accession
+        sg_map_df = sg_map_df.merge(
+                                upis_map_df, 
                                 how='left', 
                                 left_on='to', 
                                 right_on='from', 
                                 suffixes=('', '_upi'))
-        sgmap_df.loc[sgmap_df['to_upi'].notnull(), 'to'] = sgmap_df['to_upi']
-        
+        sg_map_df.loc[sg_map_df['to_upi'].notnull(), 'to'] = sg_map_df['to_upi']
+
+        ### merge dataframe with suggested ids dataframe with UniProtKB accession
         df = df.merge(
-                    sgmap_df, 
+                    sg_map_df, 
                     how='left', 
                     left_on=prot_ids_col,
                     right_on='from')
         df.loc[df['UniProtKB_acc'].isnull(), 'UniProtKB_acc'] = df['to']
-        df.drop(columns=['from', 'to'], inplace=True)
+
+    ### clean dataframe
+    df = df.loc[df[prot_ids_col].notnull()]
+    df = df.drop_duplicates()
+
+    print(f'total accession found with ID mappint: {df.shape[0]}')
 
     return df[[prot_ids_col, 'UniProtKB_acc']]
 
@@ -1201,3 +1107,63 @@ def save_graph_as_png(graph, file, layout='spring'):
     plt.savefig(file, format='PNG', facecolor='#222222')
     plt.close()
 
+def fetch_uniparc_data(identifier):
+    # Define the base URL of the API
+    url = f"https://rest.uniprot.org/uniparc/search?query={identifier}"
+    
+    # Perform the GET request to the API
+    response = requests.get(url)
+    
+    # Check if the request was successful
+    if response.status_code == 200:
+        # Parse the JSON response
+        data = response.json()
+        
+        # Check if results are available
+        if len(data['results']) > 0:
+            # Extract the UniParc ID
+            uniparc_id = data['results'][0]['uniParcId']
+            
+            # Extract all active UniProt IDs
+            active_uniprot_ids = []
+            
+            for reference in data['results'][0]['uniParcCrossReferences']:
+                if reference['database'] == "UniProtKB/TrEMBL" and reference['active']:
+                    uniprot_id = reference['id']
+                    active_uniprot_ids.append(uniprot_id)
+            
+            # Join active UniProt IDs with a semicolon
+            if len(active_uniprot_ids) == 0:
+                active_uniprot_str = np.nan
+            else:
+                active_uniprot_str = ";".join(active_uniprot_ids)
+            
+            return identifier, uniparc_id, active_uniprot_str
+        else:
+            # No results found
+            return identifier, np.nan, np.nan
+    else:
+        print(f"Error fetching data in {identifier}: {response.status_code}")
+        return identifier, np.nan, np.nan
+
+def complete_id_mapping_with_api_results(df):
+    no_acc = df.loc[df['UniProtKB_acc'].isnull()].iloc[:,0].to_list()
+
+    print(f'checking {len(no_acc)} not found protein accessions with UniParc API')
+
+    array = []
+    for i in no_acc:
+        prot, uniparc, uniprot = fetch_uniparc_data(identifier=i)
+        array.append([prot, uniparc, uniprot])
+
+    api_df_columns = ['db_acc', 'upi_acc', 'kb_acc']
+    api_df = pd.DataFrame(array, columns=api_df_columns)
+    
+    df = df.merge(api_df, how='left', left_on=df.columns[0], right_on='db_acc')
+    
+    df.loc[df['UniProtKB_acc'].isnull(), 'UniProtKB_acc'] = df['kb_acc']
+    df.loc[df['UniProtKB_acc'].isnull(), 'UniProtKB_acc'] = df['upi_acc']
+
+    # df.drop(columns=api_df_columns, inplace=True)
+
+    return df

@@ -5,8 +5,6 @@ import pandas as pd
 import numpy as np
 from config import MAP_DIR, CARD_DIR, AMRFINDERPLUS_DIR, RESFINDER_DIR, POINTFINDER_DIR
 from common_functions import id_mapping_protein_accessions
-from common_functions import mapping_armfinderplus_protein_accession
-from common_functions import mapping_resfinder_protein_accession
 from common_functions import complete_id_mapping_with_api_results
  
 def main():

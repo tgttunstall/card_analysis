@@ -22,13 +22,12 @@ from pyvis.network import Network
 
 def download_ftp_directory(ftp_url, download_dir, exclude_files=None):
     """
-    This function downloads all files from the specified FTP directory and saves them to the specified destination folder,
-    excluding subdirectories and the specified files.
+    Downloads all files from a specified FTP directory to a local destination, excluding specified files and subdirectories.
 
     Parameters:
-    ftp_url (str): The FTP URL of the directory containing the files to be downloaded.
-    download_dir (str): The folder where the downloaded files will be saved.
-    exclude_files (list): A list of filenames to be excluded from downloading.
+    ftp_url (str): The FTP URL pointing to the directory containing the files to be downloaded.
+    download_dir (str): The local directory where the downloaded files will be saved.
+    exclude_files (list, optional): A list of filenames to be excluded from the download. Defaults to an empty list.
     """
     if exclude_files is None:
         exclude_files = []
@@ -68,12 +67,13 @@ def download_ftp_directory(ftp_url, download_dir, exclude_files=None):
 
 def clone_repo(bitbucket_url, clone_dir):
     """
-    This function clones a Bitbucket repository to the specified directory using GitPython.
+    Clones a Bitbucket repository into a specified local directory using GitPython. The directory is cleared if it already exists.
 
     Parameters:
-    bitbucket_url (str): The URL of the Bitbucket repository to be cloned.
-    clone_dir (str): The directory where the repository will be cloned.
+    bitbucket_url (str): The URL of the Bitbucket repository to clone.
+    clone_dir (str): The local directory where the repository will be cloned. If it exists, it will be overwritten.
     """
+
     if os.path.exists(clone_dir):
         # Remove the existing directory and its contents
         shutil.rmtree(clone_dir)
@@ -89,16 +89,16 @@ def clone_repo(bitbucket_url, clone_dir):
 
 def download_and_extract_file(url, download_dir):
     """
-    This function downloads a tar.bz2 file from a given URL and extracts its contents to the specified destination folder
-    without saving the tar.bz2 file to disk.
+    Downloads a tar.bz2 file from a given URL and extracts its contents to a specified directory without saving the compressed file.
 
     Parameters:
-    url (str): The URL of the tar.bz2 file to be downloaded.
-    download_dir (str): The folder where the extracted files will be saved.
+    url (str): The URL of the tar.bz2 file to download.
+    download_dir (str): The directory where the extracted files will be saved.
 
     Returns:
-    str: The path to the extracted contents.
+    str: The path to the directory where the contents were extracted, or None if the download fails.
     """
+
     if not os.path.exists(download_dir):
         os.makedirs(download_dir)
     
@@ -116,17 +116,16 @@ def download_and_extract_file(url, download_dir):
 
 def card_data_to_content(url, file):
     """
-    This function downloads a tar.bz2 file from the provided URL, extracts a specific file from the archive, 
-    reads its content, and returns it as a string.
+    Downloads a tar.bz2 file from the provided URL, extracts a specific file from it, and returns the file's content as a string.
 
     Parameters:
-    url (str): The URL of the tar.bz2 file to be downloaded.
-    file (str): The relative path of the specific file to be extracted from the tar.bz2 archive.
+    url (str): The URL of the tar.bz2 file to download.
+    file (str): The relative path of the specific file to extract from the tar.bz2 archive.
 
     Returns:
-    str: The content of the extracted file as a UTF-8 encoded string, or None if the file is not found 
-         or there is an error during the process.
+    str: The content of the extracted file as a UTF-8 encoded string, or None if the file is not found or an error occurs.
     """
+
     response = requests.get(url)
     if response.status_code == 200:
         # Create a TarFile object from the downloaded content
@@ -156,12 +155,19 @@ def parse_obo_file(obo_path):
 
 def extract_subgraph(graph, node_id):
     """
-    Extracts a subgraph starting from a specific node and all its descendants.
-    
-    :param graph: The original graph (networkx.DiGraph)
-    :param node_id: The identifier of the root node for the subgraph
-    :return: The corresponding subgraph (networkx.DiGraph)
+    Extracts a subgraph from a given graph, starting from a specified node and including all its descendant nodes.
+
+    Parameters:
+    graph (networkx.DiGraph): The original directed graph from which to extract the subgraph.
+    node_id (str): The identifier of the root node from which to begin the extraction.
+
+    Returns:
+    networkx.DiGraph: A subgraph containing the specified root node and all its descendants.
+
+    Raises:
+    ValueError: If the specified node_id is not present in the graph.
     """
+
     # Ensure the node is in the graph
     if node_id not in graph:
         raise ValueError(f"The node {node_id} is not in the graph.")
@@ -177,22 +183,26 @@ def extract_subgraph(graph, node_id):
 
 def card_graph(obo_file, json_file, categories_file, map_file, acc, colors):
     """
-    This function generates a graph visualization for a specific antimicrobial resistance (AMR) gene
-    using data from OBO, JSON files. It filters the relevant data, constructs a subgraph,
-    and adds nodes and edges with appropriate labels and attributes.
+    Generates a graph visualization for a specific antimicrobial resistance (AMR) gene using ontology data from OBO and CARD JSON files.
+
+    This function filters the relevant AMR data, constructs a subgraph centered around the specified gene, and adds nodes and edges with appropriate labels and attributes.
 
     Parameters:
     obo_file (str): Path to the OBO file containing ontology information.
     json_file (str): Path to the JSON file containing CARD data.
+    categories_file (str): Path to the TSV file containing mapping of ARO accessions to categories.
     map_file (str): Path to the TSV file mapping UniProtKB accessions to ARO accessions.
-    acc (str): The UniProtKB accession number to search for.
-    color (str): The color to be used for nodes in the graph.
+    acc (str): The UniProtKB accession number to search for in the CARD database.
+    colors (dict): A dictionary mapping categories or groups to specific colors for nodes in the graph.
 
     Returns:
-    graph (Graph): The constructed graph object with nodes and edges.
-    aro (str): The ARO accession number associated with the given UniProtKB accession.
+    networkx.Graph: The constructed graph object with nodes and edges representing the AMR gene's ontology and relationships.
+    str: The ARO accession number associated with the given UniProtKB accession, used as the root node in the graph.
+
+    Raises:
+    ValueError: If the specified UniProtKB accession is not found in the map file.
     """
-    
+
     ### get aro from map file
     map_df = pd.read_csv(map_file, sep='\t')
     map_aro_df = map_df.loc[map_df['UniProtKB_acc'].str.contains(acc, na=False)]
@@ -274,21 +284,19 @@ def card_graph(obo_file, json_file, categories_file, map_file, acc, colors):
 
 def amrfinderplus_graph(database_dir, map_file, acc, color):
     """
-    This function generates a graph visualization for a specific antimicrobial resistance (AMR) gene
-    using data from database files and a map file. It constructs a subgraph based on the AMR gene's
-    hierarchy and adds nodes and edges with appropriate labels and attributes.
+    Generates a graph visualization for a specific antimicrobial resistance (AMR) gene using data from a reference database and a mapping file.
 
     Parameters:
-    database_dir (str): Path to the directory containing database files.
+    database_dir (str): Path to the directory containing the AMR reference database files.
     map_file (str): Path to the TSV file mapping UniProtKB accessions to RefSeq protein accessions.
     acc (str): The UniProtKB accession number to search for.
-    color (str): The color to be used for nodes in the graph.
+    color (str): The color to be used for nodes in the graph visualization.
 
     Returns:
-    graph (Graph): The constructed graph object with nodes and edges.
+    graph (networkx.MultiDiGraph): The generated graph object with nodes and edges representing the AMR gene hierarchy.
     node_name (str): The name of the root node of the graph.
     """
-    
+
     ### create dataframe from files
     cat = pd.read_csv(database_dir / 'ReferenceGeneCatalog.txt', sep='\t')
     hier = pd.read_csv(database_dir / 'ReferenceGeneHierarchy.txt', sep='\t')
@@ -427,19 +435,22 @@ def amrfinderplus_graph(database_dir, map_file, acc, color):
 
 def resfinder_graph(phenotype, map_file, acc, color):
     """
-    This function generates a graph visualization for a specific antimicrobial resistance (AMR) gene from ResFinder database
-    using data from phenotypes.txt and map files. It constructs a subgraph based on the AMR gene's relationships
-    and adds nodes and edges with appropriate labels and attributes.
+    Generates a graph visualization for a specific antimicrobial resistance (AMR) gene using data from the ResFinder database and phenotype mappings.
+
+    This function constructs a subgraph representing the relationships between the gene, its associated resistance mechanisms, phenotypes, and other relevant attributes.
 
     Parameters:
-    phenotype (str): Path to the directory containing phenotype data.
+    phenotype (str): Path to the directory containing phenotype data, specifically the 'phenotypes.txt' file.
     map_file (str): Path to the TSV file mapping UniProtKB accessions to ResFinder accessions.
-    acc (str): The UniProtKB accession number to search for.
+    acc (str): The UniProtKB accession number to search for in the ResFinder database.
     color (str): The color to be used for nodes in the graph.
 
     Returns:
-    graph (Graph): The constructed graph object with nodes and edges.
-    gene_accession (str): The gene accession number associated with the given UniProtKB accession.
+    networkx.MultiDiGraph: The constructed graph object with nodes and edges representing the AMR gene's relationships and characteristics.
+    str: The gene accession number associated with the given UniProtKB accession.
+
+    Raises:
+    ValueError: If the specified UniProtKB accession is not found in the map file.
     """
 
     phen = pd.read_csv(phenotype / 'phenotypes.txt', sep='\t')
@@ -524,15 +535,15 @@ def resfinder_graph(phenotype, map_file, acc, color):
 def simplify_graph(graph):
     """
     ¡¡¡ On develop !!!
-    This function simplifies a given graph by merging nodes with identical predecessors and successors. 
-    It creates a new node to represent the merged nodes and updates the edges accordingly.
+    Simplifies a given graph by merging nodes that share identical predecessors and successors, creating a cleaner representation.
 
     Parameters:
-    graph (Graph): The original graph to be simplified.
+    graph (networkx.Graph): The original graph to simplify.
 
     Returns:
-    simplified_graph (Graph): The simplified graph with merged nodes.
+    networkx.Graph: The simplified graph with merged nodes.
     """
+
     # Create a copy of the graph to make modifications
     simplified_graph = graph.copy()
     
@@ -593,8 +604,7 @@ def insert_newline_every_n_chars(text, n):
 
 def run_idmapping(accesion, from_db, to_db):
     """
-    This function initiates an ID mapping job using the UniProt API, monitors the job status, 
-    and returns the job ID once the job is finished.
+    Initiates an ID mapping job using the UniProt API, monitors its progress, and returns the job ID upon completion.
 
     Parameters:
     accesion (str): The accession ID to be mapped.
@@ -602,7 +612,7 @@ def run_idmapping(accesion, from_db, to_db):
     to_db (str): The target database for the ID mapping.
 
     Returns:
-    jobid (str): The job ID of the ID mapping job.
+    str: The job ID of the ID mapping task.
     """
 
     # Define the URL of the API of IDmapping
@@ -649,15 +659,13 @@ def run_idmapping(accesion, from_db, to_db):
 
 def get_idmapping_results(jobid):
     """
-    This function retrieves the results of an ID mapping job from the UniProt API 
-    and returns them as a DataFrame.
+    Retrieves the results of an ID mapping job from the UniProt API and returns them as a DataFrame.
 
     Parameters:
-    jobid (str): The job ID of the completed ID mapping job.
+    jobid (str): The job ID of the completed ID mapping task.
 
     Returns:
-    df (DataFrame): A DataFrame containing the mapping results, with 'from' IDs grouped 
-                    and concatenated 'to' IDs.
+    pandas.DataFrame: A DataFrame containing the mapping results with 'from' IDs and their corresponding 'to' IDs.
     """
 
     # Define URL
@@ -679,15 +687,19 @@ def get_idmapping_results(jobid):
 
 def get_idmapping_suggestedIds(jobid):
     """
-    This function retrieves the suggested IDs from an ID mapping job using the UniProt API
-    and returns them as a DataFrame.
+    Retrieves suggested IDs from a completed ID mapping job using the UniProt API.
+
+    This function accesses the results of an ID mapping job and returns any suggested IDs that the API provides for further mapping.
 
     Parameters:
-    jobid (str): The job ID of the completed ID mapping job.
+    jobid (str): The job ID of the completed ID mapping task.
 
     Returns:
-    df (DataFrame): A DataFrame containing the suggested IDs, with 'from' IDs grouped 
-                    and concatenated 'to' IDs. Returns None if no suggested IDs are found.
+    pandas.DataFrame: A DataFrame containing the suggested IDs, where 'from' IDs are grouped, and their corresponding 'to' IDs are concatenated.
+                      Returns None if no suggested IDs are found.
+
+    Raises:
+    ValueError: If the job ID is invalid or if there is an error in retrieving the results.
     """
 
     # Define URL
@@ -712,15 +724,23 @@ def get_idmapping_suggestedIds(jobid):
         return None
 
 def id_mapping_protein_accessions(df, prot_ids_col, from_to):
-    '''
-    in develop
-    
-    merge suggested ids with mapped UPIs
-    merge df with suggested ids    
-    remove nan protein acessions
-    drop duplicated
-    '''
-    
+    """
+    Maps protein accessions in a DataFrame to UniProtKB accessions using the UniProt ID mapping service and suggested IDs.
+
+    This function iteratively maps protein IDs from a specified column to UniProtKB accessions, handling cases where direct mappings are not available by using suggested IDs and further mapping steps.
+
+    Parameters:
+    df (pandas.DataFrame): The DataFrame containing protein accessions to be mapped.
+    prot_ids_col (str): The name of the column in the DataFrame containing the protein IDs to be mapped.
+    from_to (list of tuples): A list of tuples, where each tuple contains the source and target database names for ID mapping.
+
+    Returns:
+    pandas.DataFrame: A DataFrame with the original protein IDs and their corresponding UniProtKB accessions. Rows with no successful mapping are removed.
+
+    Raises:
+    ValueError: If the mapping process encounters issues, such as invalid source or target databases.
+    """
+
     sg_array = []
 
     for from_db, to_db in from_to:
@@ -789,6 +809,18 @@ def id_mapping_protein_accessions(df, prot_ids_col, from_to):
     return df[[prot_ids_col, 'UniProtKB_acc']]
 
 def create_pyvis_html(graph):
+    """
+    Creates an interactive HTML visualization of a graph using the PyVis library.
+
+    This function manually adds nodes and edges from a NetworkX graph to a PyVis network, allowing for customized visual attributes such as node color, size, and edge labels. The resulting network is configured with physics-based layout options for better separation and visualization.
+
+    Parameters:
+    graph (networkx.Graph): The NetworkX graph to be visualized.
+
+    Returns:
+    pyvis.network.Network: A PyVis Network object configured for interactive visualization in an HTML format.
+    """
+
     # Create a PyVis network
     net = Network(notebook=False, height='800px', width='100%', bgcolor='#222222', font_color='white')
 
@@ -890,14 +922,15 @@ def create_pyvis_html(graph):
 
 def graph_to_cytoscape_json(graph):
     """
-    Converts a networkx graph to a Cytoscape.js compatible JSON format.
+    Converts a networkx graph into a JSON format compatible with Cytoscape.js.
 
     Parameters:
     graph (networkx.Graph): The graph to be converted.
 
     Returns:
-    dict: A dictionary in Cytoscape.js JSON format.
+    dict: A dictionary representing the graph in Cytoscape.js compatible JSON format.
     """
+
     cytoscape_json = {
         "nodes": [],
         "edges": []
@@ -931,14 +964,15 @@ def graph_to_cytoscape_json(graph):
 
 def graph_to_cytoscape_desktop_json(graph):
     """
-    Converts a networkx graph to a Cytoscape desktop compatible JSON format.
+    Converts a networkx graph into a JSON format compatible with Cytoscape desktop.
 
     Parameters:
     graph (networkx.Graph): The graph to be converted.
 
     Returns:
-    dict: A dictionary in Cytoscape desktop JSON format.
+    dict: A dictionary representing the graph in Cytoscape desktop compatible JSON format.
     """
+
     cytoscape_json = {
         "data": {
             "name": "Network",
@@ -981,12 +1015,21 @@ def graph_to_cytoscape_desktop_json(graph):
 
 def save_graph_as_png(graph, file, layout='spring'):
     """
-    Guarda un grafo de NetworkX como una imagen PNG similar a la imagen de ejemplo proporcionada.
+    Saves a NetworkX graph as a PNG image with a specified layout and visual style.
+
+    This function visualizes the graph using various layout options and customizes 
+    node and edge attributes such as color, size, and labels. The graph is then saved 
+    as a PNG image with the specified settings.
 
     Parameters:
-    graph (networkx.Graph): El grafo a guardar.
-    file (str): La ruta donde se guardará la imagen PNG.
-    layout (str): El tipo de layout a utilizar ('spring', 'circular', 'shell', etc.).
+    graph (networkx.Graph): The NetworkX graph to be saved as an image.
+    file (str): The file path where the PNG image will be saved.
+    layout (str, optional): The layout algorithm to use for positioning nodes. 
+    Options include 'spring', 'circular', 'shell', 'spectral', and 'kamada_kawai'. 
+    Defaults to 'spring'.
+
+    Raises:
+    ValueError: If an unsupported layout option is provided.
     """
 
     # Seleccionar el layout
@@ -1036,6 +1079,19 @@ def save_graph_as_png(graph, file, layout='spring'):
     plt.close()
 
 def fetch_uniparc_data(identifier):
+    """
+    Fetches UniParc and UniProt IDs associated with a given identifier from the UniProt API.
+
+    This function queries the UniProt API to retrieve the UniParc ID and any active UniProtKB IDs associated with the provided identifier.
+
+    Parameters:
+    identifier (str): The identifier to search for in the UniParc database.
+
+    Returns:
+    tuple: A tuple containing the original identifier, the retrieved UniParc ID, and a semicolon-separated string of active UniProtKB IDs. 
+           Returns NaN for any value not found.
+    """
+
     # Define the base URL of the API
     url = f"https://rest.uniprot.org/uniparc/search?query={identifier}"
     
@@ -1075,6 +1131,18 @@ def fetch_uniparc_data(identifier):
         return identifier, np.nan, np.nan
 
 def complete_id_mapping_with_api_results(df):
+    """
+    Completes missing UniProtKB accessions in a DataFrame by querying the UniParc API.
+
+    This function identifies entries in the DataFrame that lack UniProtKB accessions, queries the UniParc API to retrieve possible matches, and fills in the missing data with the results.
+
+    Parameters:
+    df (pandas.DataFrame): The DataFrame containing protein accessions, where some may be missing UniProtKB accessions.
+
+    Returns:
+    pandas.DataFrame: The original DataFrame with UniProtKB accessions filled in for previously missing entries, based on the UniParc API results.
+    """
+
     no_acc = df.loc[df['UniProtKB_acc'].isnull()].iloc[:,0].to_list()
 
     print(f'checking {len(no_acc)} not found protein accessions with UniParc API')

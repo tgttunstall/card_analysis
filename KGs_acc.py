@@ -15,19 +15,27 @@ from common_functions import create_pyvis_html
 from common_functions import graph_to_cytoscape_json
 from common_functions import graph_to_cytoscape_desktop_json
 from common_functions import save_graph_as_png
+from common_functions import capture_canvas_as_png
 from config import BASE_DIR, DATA_DIR, CARD_DIR, MAP_DIR
 from pathlib import Path
 import json
 import py4cytoscape as p4c
 
+
 parser = argparse.ArgumentParser(description='Create knowledge graph from UniProt KB accession with CARD ontology')
 parser.add_argument('--accession', type=str, help='UniProt KB accession', required=True)
 parser.add_argument('--outdir', type=str, help='Path to html file with the knowledge graph', required=True)
-parser.add_argument('--visualization', type=str, choices=['pyvis', 'cytoscape', 'cytoscape_desktop', 'png'], default='pyvis', help='Visualization tool to use (pyvis or cytoscape)', required=True)
+parser.add_argument('--visualization', type=str, nargs='*', choices=['pyvis', 'cytoscape', 'cytoscape_desktop', 'png', 'all'], default=['pyvis'], help='Visualization tools to use')
 args = parser.parse_args()
 
 acc = args.accession
 outdir = Path(args.outdir)
+
+# If 'all' is in the list of visualizations, include all possible visualizations
+if 'all' in args.visualization:
+    visualizations = ['pyvis', 'cytoscape', 'cytoscape_desktop', 'png']
+else:
+    visualizations = args.visualization
 
 ### Define group color mapping
 group_colors = {
@@ -38,10 +46,11 @@ group_colors = {
     # Add more groups and their colors as needed
 }
 card_colors = {
-    'card': '#0000FF', # blue
-    'AMR Gene Family': '#8A2BE2', # violet blue
-    'Drug Class': '#00BFFF', # Depskyblue
-    'Resistance Mechanism': '#B0E0E6' # pale blue
+    'card': 'blue',
+    'Antibiotic': 'rebeccapurple',
+    'Drug Class': 'mediumorchid',
+    'AMR Gene Family': 'steelblue', 
+    'Resistance Mechanism': 'deepskyblue'
 }
 
 ### create graph
@@ -54,6 +63,7 @@ card_G, aro = card_graph(
     json_file=CARD_DIR / 'data/card.json',
     categories_file=CARD_DIR / 'data/aro_categories.tsv',
     map_file=MAP_DIR / 'card_map.tsv',
+    aro_index=CARD_DIR / 'data/aro_index.tsv',
     acc=acc, 
     colors=card_colors
     )
@@ -122,37 +132,53 @@ for u, v, key, data in G.edges(keys=True, data=True):
 ### merge nodes with same predecesor and sucesor nodes !!! on develop
 # G = simplify_graph(graph=G)
 
-
-### Generate the pyvis network graph
-net = create_pyvis_html(graph=G)
-# net.show_buttons()
-# Redefine the open method of webbrowser to do nothing
-webbrowser.open = lambda url, new=0, autoraise=True: None
-net.save_graph(str(outdir / f"{acc}.html"))
-
-if args.visualization == 'cytoscape':
-    # Generate the Cytoscape.js compatible JSON
-    cytoscape_json = graph_to_cytoscape_json(G)
+# Generate visualizations based on the specified arguments
+if 'pyvis' in visualizations:
+    net = create_pyvis_html(graph=G)
+    # Redefine the open method of webbrowser to do nothing
+    webbrowser.open = lambda url, new=0, autoraise=True: None
     
-    # Save the JSON to a file
+    html_file = outdir / f"{acc}.html"
+    html_path = html_file.resolve()
+    png_path = outdir / f"{acc}.png"
+    svg_path = outdir / f"{acc}.svg"
+    svg_path = svg_path.resolve()
+    
+    net.save_graph(str(html_file))
+
+    # capture_svg_from_html(html_file=html_path, output_svg=svg_path, browser="chrome", wait_time=4)
+    capture_canvas_as_png(html_file=html_path, output_png=png_path, browser="chrome", wait_time=5)
+
+    print(f'Graph saved in HTML format at {html_path}')
+    
+    # capture_pyvis_screenshot(
+    #     html_file=html_path, 
+    #     output_image=png_path, 
+    #     browser="chrome", 
+    #     width=1400, 
+    #     height=1100, 
+    #     wait_time=3, 
+    #     scale_factor=1
+    #     )
+    
+    # print(f'Graph saved in PNG format from pyvis html at {png_path}')
+
+if 'png' in visualizations:
+    png_file = outdir / f"{acc}.png"
+    save_graph_as_png(graph=G, file=png_file, layout='spring')
+    print(f'Graph saved in PNG format at {png_file}')
+
+if 'cytoscape' in visualizations:
+    cytoscape_json = graph_to_cytoscape_json(G)
     json_file = outdir / f"{acc}_cytoscape_js.json"
     with open(json_file, 'w') as f:
         json.dump(cytoscape_json, f)
-    
     print(f'Graph saved in Cytoscape.js JSON format at {json_file}')
 
-elif args.visualization == 'cytoscape_desktop':
-    # Generate the Cytoscape desktop compatible JSON
+if 'cytoscape_desktop' in visualizations:
     cytoscape_desktop_json = graph_to_cytoscape_desktop_json(G)
-    
-    # Save the JSON to a file
     json_file = outdir / f"{acc}_cytoscape_desktop.json"
     with open(json_file, 'w') as f:
         json.dump(cytoscape_desktop_json, f)
-    
     print(f'Graph saved in Cytoscape desktop JSON format at {json_file}')
 
-
-png_file = outdir / f"{acc}.png"
-save_graph_as_png(graph=G, file=png_file, layout='spring')
-print(f'Graph saved in PNG format at {png_file}')

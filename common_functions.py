@@ -19,6 +19,9 @@ import shutil
 import matplotlib.pyplot as plt
 import networkx as nx
 from pyvis.network import Network
+from selenium import webdriver
+import base64
+
 
 def download_ftp_directory(ftp_url, download_dir, exclude_files=None):
     """
@@ -181,7 +184,7 @@ def extract_subgraph(graph, node_id):
     
     return subgraph
 
-def card_graph(obo_file, json_file, categories_file, map_file, acc, colors):
+def card_graph(obo_file, json_file, categories_file, aro_index, map_file, acc, colors):
     """
     Generates a graph visualization for a specific antimicrobial resistance (AMR) gene using ontology data from OBO and CARD JSON files.
 
@@ -203,20 +206,31 @@ def card_graph(obo_file, json_file, categories_file, map_file, acc, colors):
     ValueError: If the specified UniProtKB accession is not found in the map file.
     """
 
-    ### get aro from map file
+    ### get databse accession from map file
     map_df = pd.read_csv(map_file, sep='\t')
-    map_aro_df = map_df.loc[map_df['UniProtKB_acc'].str.contains(acc, na=False)]
-    if map_aro_df.empty: # check accession 
-        return None, None
+    filt_map_df = map_df.loc[map_df['UniProtKB_acc'].str.contains(acc, na=False)]
+    if not filt_map_df.empty:
+        db_acc = filt_map_df.iat[0,0]
     else:
-        aro = map_aro_df['ARO Accession'].iloc[0]
-        print(aro)
+        return None, None
+    print(db_acc)
+    ### get ARO from database accession
+    aro_index_df = pd.read_csv(aro_index, sep='\t')
+    aro = aro_index_df.loc[aro_index_df['Protein Accession'] == db_acc].iat[0,0]
     
+    ### extrac subgraph from obo file
     obo_graph = parse_obo_file(obo_path=obo_file)
     graph = extract_subgraph(graph=obo_graph, node_id=aro)
     
-    ## categories files
+    ### categories files
     cat_df = pd.read_csv(categories_file, sep='\t')
+
+    ### Process edges and identify antibiotic nodes
+    antibiotic_nodes = set()
+    for source, target, edge_id in graph.edges:
+        graph.edges[source, target, edge_id]['label'] = edge_id
+        if graph.edges[source, target, edge_id]['label'] == "confers_resistance_to_antibiotic":
+            antibiotic_nodes.add(target)
 
     for node, data in graph.nodes(data=True):
         # get short name
@@ -242,14 +256,15 @@ def card_graph(obo_file, json_file, categories_file, map_file, acc, colors):
             data['color'] = colors[cat]
             data['title'] = f'{node}: {cat}: {data.get('name')}; {data.get('def')}'
 
+        if node in antibiotic_nodes:
+            data['color'] = colors['Antibiotic']
+            data['title'] = f'{node}: Antibiotic: {data.get('name')}; {data.get('def')}'
 
-    for source, target, edge_id in graph.edges:
-        graph.edges[source, target, edge_id]['label'] = edge_id
 
-    ## json file parse to get SNPs
     with open(json_file, 'r') as file:
         json_data = json.load(file)
 
+    ### json file parse to get SNPs
     for key, value in json_data.items():
         if isinstance(value, dict):
             if 'ARO_accession' in value.keys(): ### take into account protein overexpresion model as well
@@ -274,7 +289,7 @@ def card_graph(obo_file, json_file, categories_file, map_file, acc, colors):
                         })
                         graph.add_edge('SNPs', snp, label=value['model_param']['snp']['param_type'])
 
-    ## remove some general nodes for a clearer graph
+    ### remove some general nodes for a clearer graph
     graph.remove_node('ARO:1000001') # process or component of antibiotic biology or chemistry
     graph.remove_node('ARO:1000002') # mechanism of antibiotic resistance
     graph.remove_node('ARO:1000003') # antibiotic molecule
@@ -822,7 +837,7 @@ def create_pyvis_html(graph):
     """
 
     # Create a PyVis network
-    net = Network(notebook=False, height='800px', width='100%', bgcolor='#222222', font_color='white')
+    net = Network(notebook=False, height='1500px', width='100%', bgcolor='#222222', font_color='white')
 
     # Iterate through nodes and edges to manually add them
     for node, data in graph.nodes(data=True):
@@ -1025,7 +1040,7 @@ def save_graph_as_png(graph, file, layout='spring'):
     graph (networkx.Graph): The NetworkX graph to be saved as an image.
     file (str): The file path where the PNG image will be saved.
     layout (str, optional): The layout algorithm to use for positioning nodes. 
-    Options include 'spring', 'circular', 'shell', 'spectral', and 'kamada_kawai'. 
+    Options include 'spring', 'circular', 'shell', 'spectral', 'kamada_kawai', 'fruchterman_reingold'. 
     Defaults to 'spring'.
 
     Raises:
@@ -1034,7 +1049,8 @@ def save_graph_as_png(graph, file, layout='spring'):
 
     # Seleccionar el layout
     if layout == 'spring':
-        pos = nx.spring_layout(graph, k=0.5, iterations=100)
+        k_value = 1 / np.sqrt(len(graph.nodes()))  # Ajuste dinámico de k para más separación
+        pos = nx.spring_layout(graph, k=k_value, iterations=1500, seed=42)
     elif layout == 'circular':
         pos = nx.circular_layout(graph)
     elif layout == 'shell':
@@ -1042,35 +1058,56 @@ def save_graph_as_png(graph, file, layout='spring'):
     elif layout == 'spectral':
         pos = nx.spectral_layout(graph)
     elif layout == 'kamada_kawai':
-        pos = nx.kamada_kawai_layout(graph)
+        pos = nx.kamada_kawai_layout(graph, weight=None)
+    elif layout == 'fruchterman_reingold':
+        pos = nx.fruchterman_reingold_layout(graph, k=0.5, iterations=1500)
     else:
-        raise ValueError("Layout no soportado: elija entre 'spring', 'circular', 'shell', 'spectral', 'kamada_kawai'.")
+        raise ValueError("Layout no soportado: elija entre 'spring', 'circular', 'shell', 'spectral', 'kamada_kawai', 'fruchterman_reingold'.")
+
+    # Aplicar una fuerza repulsiva adicional entre nodos muy cercanos
+    min_dist = 0.1  # Distancia mínima entre nodos
+    for node1 in pos:
+        for node2 in pos:
+            if node1 != node2:
+                dist = np.linalg.norm(pos[node1] - pos[node2])
+                if dist < min_dist:
+                    # Separar los nodos
+                    move_vector = (pos[node1] - pos[node2]) * (min_dist / dist - 1)
+                    pos[node1] += move_vector / 2
+                    pos[node2] -= move_vector / 2
 
     # Extraer atributos de los nodos
     node_colors = [graph.nodes[n].get('color', '#1f78b4') for n in graph.nodes()]
-    node_sizes = [graph.nodes[n].get('size', 300) for n in graph.nodes()]
+    node_sizes = [graph.nodes[n].get('size', 200) * 100 for n in graph.nodes()]
     node_labels = {n: graph.nodes[n].get('label', n) for n in graph.nodes()}
+    node_font_sizes = {n: graph.nodes[n].get('font_size', 18) for n in graph.nodes()}  # Diccionario de tamaño de fuente por nodo
+
+    # Verificación y debug de node_font_sizes
+    for node, font_size in node_font_sizes.items():
+        if not isinstance(font_size, (int, float)):
+            raise TypeError(f"El tamaño de fuente para el nodo {node} no es un número: {font_size}")
 
     # Extraer atributos de las aristas
     edge_colors = [graph.edges[e].get('color', '#A0A0A0') for e in graph.edges(keys=True)]
-    edge_widths = [graph.edges[e].get('width', 1.5) for e in graph.edges(keys=True)]
+    edge_widths = [graph.edges[e].get('width', 2) for e in graph.edges(keys=True)]
     edge_labels = {(u, v): d.get('label', '') for u, v, d in graph.edges(data=True)}
 
     # Dibujar el grafo
-    plt.figure(figsize=(20, 20))
+    plt.figure(figsize=(60, 60), dpi=200)  # Aumentar el tamaño de la figura
     nx.draw(graph, pos,
-            with_labels=True,
-            labels=node_labels,
+            with_labels=False,  # Desactivar las etiquetas por defecto
             node_size=node_sizes,
             node_color=node_colors,
             edge_color=edge_colors,
             width=edge_widths,
-            font_size=10,
-            font_color='white',
             alpha=0.9)
-    
+
+    # Dibujar las etiquetas de los nodos con sus tamaños específicos
+    for node, (x, y) in pos.items():
+        plt.text(x, y, s=node_labels[node], fontsize=node_font_sizes[node], ha='center', va='center', color='white')
+
     # Añadir etiquetas a las aristas
-    nx.draw_networkx_edge_labels(graph, pos, edge_labels=edge_labels, bbox=dict(alpha=0))
+    nx.draw_networkx_edge_labels(graph, pos, edge_labels=edge_labels, font_color='gray', font_size=10, bbox=dict(alpha=0))
 
     plt.axis('off')  # Ocultar los ejes
 
@@ -1163,3 +1200,47 @@ def complete_id_mapping_with_api_results(df):
     # df.drop(columns=api_df_columns, inplace=True)
 
     return df
+
+def capture_canvas_as_png(html_file, output_png, browser="chrome", wait_time=5):
+    """
+    Captures the content of a canvas from the HTML file and saves it as a PNG file.
+
+    Parameters:
+    html_file (str): Path to the HTML file containing the canvas.
+    output_png (str): Path to save the captured PNG file.
+    browser (str): Browser to use for capturing the canvas. Options are "firefox" or "chrome". Default is "chrome".
+    wait_time (int): Time to wait for the page to fully load before capturing the canvas. Default is 5 seconds.
+    """
+    # Set up the browser driver
+    if browser == "firefox":
+        driver = webdriver.Firefox()
+    elif browser == "chrome":
+        driver = webdriver.Chrome()
+    else:
+        raise ValueError("Unsupported browser! Use 'firefox' or 'chrome'.")
+
+    try:
+        # Open the HTML file in the browser
+        driver.get(f"file://{os.path.abspath(html_file)}")
+
+        # Wait for the page to load
+        time.sleep(wait_time)
+
+        # Extract the canvas content as a data URL
+        canvas_data_url = driver.execute_script("""
+            var canvas = document.querySelector("canvas");
+            return canvas.toDataURL("image/png").substring(22);  // Remove the data URL prefix
+        """)
+
+        # Decode the base64-encoded data and write it to a file
+        canvas_data = base64.b64decode(canvas_data_url)
+        with open(output_png, 'wb') as file:
+            file.write(canvas_data)
+
+        print(f"Canvas saved as {output_png}")
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
+    finally:
+        # Close the browser
+        driver.quit()

@@ -59,26 +59,26 @@ G = nx.MultiDiGraph()
 
 ### Create CARD KG
 card_G, aro = card_graph(
-    obo_file=CARD_DIR / 'ontology/aro.obo',
-    json_file=CARD_DIR / 'data/card.json',
-    categories_file=CARD_DIR / 'data/aro_categories.tsv',
-    map_file=MAP_DIR / 'card_map.tsv',
-    aro_index=CARD_DIR / 'data/aro_index.tsv',
+    obo_file=CARD_DIR + '/ontology/aro.obo',
+    json_file=CARD_DIR + '/data/card.json',
+    categories_file=CARD_DIR + '/data/aro_categories.tsv',
+    map_file=MAP_DIR + '/card_map.tsv',
+    aro_index=CARD_DIR + '/data/aro_index.tsv',
     acc=acc, 
     colors=card_colors
     )
 ### Create AMRFinderPlus graph
 amrfinderplus_G, gene_fam = amrfinderplus_graph(
-    database_dir=DATA_DIR / 'AMRFinderPlus', 
-    map_file=MAP_DIR / 'amrfinderplus_map.tsv',
+    database_dir=DATA_DIR + '/AMRFinderPlus', 
+    map_file=MAP_DIR + '/amrfinderplus_map.tsv',
     acc=acc,
     color=group_colors.get('amrfinderplus', 'black')  
     )
 
 ### Create AMRFinderPlus graph
 resfinder_G, gene_accession = resfinder_graph(
-    phenotype=DATA_DIR / 'resfinder_db', 
-    map_file=MAP_DIR / 'resfinder_map.tsv',
+    phenotype=DATA_DIR + '/resfinder_db', 
+    map_file=MAP_DIR + '/resfinder_map.tsv',
     acc=acc,
     color=group_colors.get('resfinder', 'black')  
     )
@@ -138,10 +138,10 @@ if 'pyvis' in visualizations:
     # Redefine the open method of webbrowser to do nothing
     webbrowser.open = lambda url, new=0, autoraise=True: None
     
-    html_file = outdir / f"{acc}.html"
+    html_file = outdir + f"/{acc}.html"
     html_path = html_file.resolve()
-    png_path = outdir / f"{acc}.png"
-    svg_path = outdir / f"{acc}.svg"
+    png_path = outdir + f"/{acc}.png"
+    svg_path = outdir + f"/{acc}.svg"
     svg_path = svg_path.resolve()
     
     net.save_graph(str(html_file))
@@ -164,20 +164,20 @@ if 'pyvis' in visualizations:
     # print(f'Graph saved in PNG format from pyvis html at {png_path}')
 
 if 'png' in visualizations:
-    png_file = outdir / f"{acc}.png"
+    png_file = outdir + f"/{acc}.png"
     save_graph_as_png(graph=G, file=png_file, layout='spring')
     print(f'Graph saved in PNG format at {png_file}')
 
 if 'cytoscape' in visualizations:
     cytoscape_json = graph_to_cytoscape_json(G)
-    json_file = outdir / f"{acc}_cytoscape_js.json"
+    json_file = outdir + f"/{acc}_cytoscape_js.json"
     with open(json_file, 'w') as f:
         json.dump(cytoscape_json, f)
     print(f'Graph saved in Cytoscape.js JSON format at {json_file}')
 
 if 'cytoscape_desktop' in visualizations:
     cytoscape_desktop_json = graph_to_cytoscape_desktop_json(G)
-    json_file = outdir / f"{acc}_cytoscape_desktop.json"
+    json_file = outdir + f"/{acc}_cytoscape_desktop.json"
     with open(json_file, 'w') as f:
         json.dump(cytoscape_desktop_json, f)
     print(f'Graph saved in Cytoscape desktop JSON format at {json_file}')

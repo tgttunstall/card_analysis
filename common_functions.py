@@ -247,7 +247,7 @@ def card_graph(obo_file, json_file, categories_file, aro_index, map_file, acc, c
         else:
             data['label'] = data.get('name')
         
-        data['title'] = f'{node}: {data.get('name')}; {data.get('def')}'
+        data['title'] = f"{node}: {data.get('name')}; {data.get('def')}"
         data['group'] = 'card'
         data['color'] = colors['card']
 

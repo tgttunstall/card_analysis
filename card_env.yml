@@ -1,0 +1,31 @@
+name: card-analysis
+channels:
+  - conda-forge
+  - bioconda
+
+dependencies:
+  # Core scientific stack
+  - python=3.12
+  - pandas
+  - numpy
+  - matplotlib
+  - networkx
+  - obonet
+  - requests
+
+  # GitPython (repo operations)
+  - gitpython
+
+  # Selenium (browser automation)
+  - selenium
+
+  # PyVis (interactive networks)
+  - pyvis
+
+  # System utilities/pip extensions
+  - pip
+  - pip:
+      # No conda packages exist for these:
+      - ftputil           # alternative to ftplib if you need easier FTP
+      - webdriver-manager # makes Selenium easier (auto installs drivers)
+

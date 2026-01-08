@@ -220,7 +220,8 @@ def card_graph(obo_file, json_file, categories_file, map_file, acc, colors):
     ### get ARO from database accession
     #aro_index_df = pd.read_csv(aro_index, sep='\t')
     #aro = aro_index_df.loc[aro_index_df['Protein Accession'] == db_acc].iat[0,0]
-    aro = filt_map_df['ARO'].iloc[0]
+    #aro = filt_map_df['ARO'].iloc[0]
+    aro = filt_map_df['ARO Accession'].iloc[0]
     
     ### extrac subgraph from obo file
     obo_graph = parse_obo_file(obo_path=obo_file)

@@ -24,7 +24,8 @@ def trace_inputs(accession, map_file, obo_file, json_file, categories_file, outd
     if acc_row.empty:
         print(f"❌ Accession {accession} not found in mapping file.")
         return
-    aro_root = acc_row["ARO"].iloc[0]
+#    aro_root = acc_row["ARO"].iloc[0]
+    aro_root = acc_row["ARO Accession"].iloc[0]
     print(f"✅ Root ARO: {aro_root}")
 
     # Step 2: Load data

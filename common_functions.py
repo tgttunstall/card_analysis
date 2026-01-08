@@ -184,7 +184,8 @@ def extract_subgraph(graph, node_id):
     
     return subgraph
 
-def card_graph(obo_file, json_file, categories_file, aro_index, map_file, acc, colors):
+#def card_graph(obo_file, json_file, categories_file, aro_index, map_file, acc, colors):
+def card_graph(obo_file, json_file, categories_file, map_file, acc, colors):
     """
     Generates a graph visualization for a specific antimicrobial resistance (AMR) gene using ontology data from OBO and CARD JSON files.
 
@@ -208,15 +209,18 @@ def card_graph(obo_file, json_file, categories_file, aro_index, map_file, acc, c
 
     ### get databse accession from map file
     map_df = pd.read_csv(map_file, sep='\t')
-    filt_map_df = map_df.loc[map_df['UniProtKB_acc'].str.contains(acc, na=False)]
+    #filt_map_df = map_df.loc[map_df['UniProtKB_acc'].str.contains(acc, na=False)]
+    filt_map_df = map_df.loc[map_df['UPKB'].str.contains(acc, na=False)]
     if not filt_map_df.empty:
-        db_acc = filt_map_df.iat[0,0]
+        #db_acc = filt_map_df.iat[0,0]
+        db_acc = filt_map_df['UPKB'].iloc[0]
     else:
         return None, None
     print(db_acc)
     ### get ARO from database accession
-    aro_index_df = pd.read_csv(aro_index, sep='\t')
-    aro = aro_index_df.loc[aro_index_df['Protein Accession'] == db_acc].iat[0,0]
+    #aro_index_df = pd.read_csv(aro_index, sep='\t')
+    #aro = aro_index_df.loc[aro_index_df['Protein Accession'] == db_acc].iat[0,0]
+    aro = filt_map_df['ARO'].iloc[0]
     
     ### extrac subgraph from obo file
     obo_graph = parse_obo_file(obo_path=obo_file)
@@ -254,11 +258,11 @@ def card_graph(obo_file, json_file, categories_file, aro_index, map_file, acc, c
         if node in cat_df['ARO Accession'].values:
             cat = cat_df.loc[cat_df['ARO Accession'] == node, 'ARO Category'].iloc[0]
             data['color'] = colors[cat]
-            data['title'] = f'{node}: {cat}: {data.get('name')}; {data.get('def')}'
+            data['title'] = f"{node}: {cat}: {data.get('name')}; {data.get('def')}"
 
         if node in antibiotic_nodes:
             data['color'] = colors['Antibiotic']
-            data['title'] = f'{node}: Antibiotic: {data.get('name')}; {data.get('def')}'
+            data['title'] = f"{node}: Antibiotic: {data.get('name')}; {data.get('def')}"
 
 
     with open(json_file, 'r') as file:
@@ -474,7 +478,7 @@ def resfinder_graph(phenotype, map_file, acc, color):
     for i in range(0, phen.shape[0]):
             prefix = phen.loc[i,'Gene_accession no.'].split('_')[-2]
             if prefix == 'NG' or prefix == 'NC':
-                phen.loc[i,prot_ids_col] = f'{prefix}_{phen.loc[i,'Gene_accession no.'].split('_')[-1]}'
+                phen.loc[i,prot_ids_col] = f"{prefix}_{phen.loc[i,'Gene_accession no.'].split('_')[-1]}"
     
     map_df = pd.read_csv(map_file, sep='\t')
 

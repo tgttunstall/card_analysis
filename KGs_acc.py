@@ -75,7 +75,7 @@ amrfinderplus_G, gene_fam = amrfinderplus_graph(
     color=group_colors.get('amrfinderplus', 'black')  
     )
 
-### Create AMRFinderPlus graph
+### Create ResFinder graph
 resfinder_G, gene_accession = resfinder_graph(
     phenotype=DATA_DIR + '/resfinder_db', 
     map_file=MAP_DIR + '/resfinder_map.tsv',

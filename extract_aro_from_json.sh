@@ -1,66 +1,62 @@
 #!/usr/bin/env bash
+#!/usr/bin/env bash
 
-BASEDIR="${HOME}"
-DATADIR="${BASEDIR}/amr/databases/card/data"
-CARD_DATA="${DATADIR}/card.json"
-OUTDIR="${DATADIR}/ind_json_output"
+BASEDIR="$HOME"
+DATADIR="$BASEDIR/amr/databases/card/data"
+CARD_DATA="$DATADIR/card.json"
+OUTDIR="$DATADIR/ind_json_output"
 
-echo 
-echo "Reading card data file: ${CARD_DATA}"
-echo 
-echo "Output dir: ${OUTDIR}"
+mkdir -pv "$OUTDIR"
 
 myaro="3007637"
-OUTFILE="${OUTDIR}/aro_${myaro}.json"
-mkdir -pv ${OUTDIR}
+OUTFILE="$OUTDIR/aro_${myaro}_filtered.json"
+
+echo "Reading card data file: $CARD_DATA"
+echo "Output file: $OUTFILE"
+
+tmpfile="$(mktemp)"
+
+# Filter the JSON
+jq --arg aro "$myaro" '
+  [
+    .[]
+    | objects
+    | select(.ARO_accession? == $aro)
+    | {
+        model_id,
+        model_name,
+        model_type,
+        ARO_category: (
+          .ARO_category? // {}
+          | with_entries(
+              select(
+                .value.category_aro_class_name == "AMR Gene Family"
+                or .value.category_aro_class_name == "Drug Class"
+                or .value.category_aro_class_name == "Resistance Mechanism"
+              )
+            )
+        )
+      }
+  ]
+' "$CARD_DATA" > "$tmpfile"
+
+# Check if any matches were found
+if [[ $(jq 'length' "$tmpfile") -eq 0 ]]; then
+    rm -f "$tmpfile"
+    echo "ERROR: ARO $myaro not found or no matching categories" >&2
+    exit 1
+fi
+
+# Optional: info if multiple models exist for the ARO
+num_models=$(jq --arg aro "$myaro" '[.[] | objects | select(.ARO_accession? == $aro)] | length' "$CARD_DATA")
+if [[ "$num_models" -gt 1 ]]; then
+    echo "INFO: Multiple models ($num_models) found for ARO $myaro"
+fi
+
+mv "$tmpfile" "$OUTFILE"
+echo "Filtered JSON written to $OUTFILE"
 
 
-#jq --arg aro "${myaro}" '
-#  .[]
-#  | objects
-#  | select(.ARO_accession? == $aro)
-#' ${CARD_DATA} > ${OUTFILE}
-
-echo 
-echo "Sanity check to see if ARO is unique"
-echo 
-jq --arg aro "${myaro}" '
-  [.[] | objects | select(.ARO_accession? == $aro)] | length
-' "${CARD_DATA}"
-############################
-# fail if no match
-jq -e --arg aro "${myaro}" '
-  .[] 
-  | objects 
-  | select(.ARO_accession? == $aro) # not a bash variable
-' "${CARD_DATA}" > "${OUTFILE}" || {
-  echo "ERROR: ARO ${myaro} not found" >&2
-  exit 1
-}
-#FIXME: output file still gets written even if jq fails
-echo "Output file written to: ${OUTFILE}"
-#############################
-#Extract specific fields: to ensure it valid json, wrap in array
-
-jq -e --arg aro "${myaro}" '
- [
-  .[]
-  | objects
-  | select(.ARO_accession? == $aro)
-  | .ARO_category? // empty
-  | .[]
-  | select (
-  	.category_aro_class_name == "AMR Gene Family"
-	or .category_aro_class_name == "Drug Class"
-	or .category_aro_class_name == "Resistance Mechanism"
-    )
- ]
-' "${CARD_DATA}" >  "${OUTDIR}/aro_${myaro}_sfields.json" || {
-  echo "ERROR: ARO ${myaro} not found" >&2
-  exit 1
-}
-
-echo "Output file for specific fields written to: ${OUTDIR}/aro_${myaro}_sfields.json"
 
 #############################
 # FILE 2: aro_categories.tsv
